@@ -99,8 +99,7 @@ def create_task(
     session.refresh(task)
     background.add_task(
         notify_openclaw,
-        session,
-        NotifyContext(event="task.created", actor_employee_id=actor_employee_id, task=task),
+        NotifyContext(event="task.created", actor_employee_id=actor_employee_id, task_id=task.id),
     )
     # Explicitly return a serializable payload (guards against empty {} responses)
     return Task.model_validate(task)
@@ -143,7 +142,7 @@ def dispatch_task(
     background.add_task(
         notify_openclaw,
         session,
-        NotifyContext(event="task.assigned", actor_employee_id=actor_employee_id, task=task),
+        NotifyContext(event="task.assigned", actor_employee_id=actor_employee_id, task_id=task.id),
     )
 
     return {"ok": True}
@@ -228,11 +227,10 @@ def review_task(
     if before_status != task.status:
         background.add_task(
             notify_openclaw,
-            session,
             NotifyContext(
                 event="status.changed",
                 actor_employee_id=actor_employee_id,
-                task=task,
+                task_id=task.id,
                 changed_fields={"status": {"from": before_status, "to": task.status}},
             ),
         )
@@ -321,11 +319,10 @@ def update_task(
         }
         background.add_task(
             notify_openclaw,
-            session,
             NotifyContext(
                 event="task.assigned",
                 actor_employee_id=actor_employee_id,
-                task=task,
+                task_id=task.id,
                 changed_fields=changed,
             ),
         )
@@ -333,22 +330,20 @@ def update_task(
         changed["status"] = {"from": before.get("status"), "to": task.status}
         background.add_task(
             notify_openclaw,
-            session,
             NotifyContext(
                 event="status.changed",
                 actor_employee_id=actor_employee_id,
-                task=task,
+                task_id=task.id,
                 changed_fields=changed,
             ),
         )
     if not changed and data:
         background.add_task(
             notify_openclaw,
-            session,
             NotifyContext(
                 event="task.updated",
                 actor_employee_id=actor_employee_id,
-                task=task,
+                task_id=task.id,
                 changed_fields=data,
             ),
         )
@@ -426,9 +421,11 @@ def create_task_comment(
     if task is not None:
         background.add_task(
             notify_openclaw,
-            session,
             NotifyContext(
-                event="comment.created", actor_employee_id=actor_employee_id, task=task, comment=c
+                event="comment.created",
+                actor_employee_id=actor_employee_id,
+                task_id=task.id,
+                comment_id=c.id,
             ),
         )
     return TaskComment.model_validate(c)
