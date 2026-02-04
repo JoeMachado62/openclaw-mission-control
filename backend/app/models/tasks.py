@@ -21,6 +21,7 @@ class Task(TenantScoped, table=True):
     due_at: datetime | None = None
 
     created_by_user_id: UUID | None = Field(default=None, foreign_key="users.id", index=True)
+    assigned_agent_id: UUID | None = Field(default=None, foreign_key="agents.id", index=True)
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

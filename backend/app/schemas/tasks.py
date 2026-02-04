@@ -12,6 +12,7 @@ class TaskBase(SQLModel):
     status: str = "inbox"
     priority: str = "medium"
     due_at: datetime | None = None
+    assigned_agent_id: UUID | None = None
 
 
 class TaskCreate(TaskBase):
@@ -24,6 +25,7 @@ class TaskUpdate(SQLModel):
     status: str | None = None
     priority: str | None = None
     due_at: datetime | None = None
+    assigned_agent_id: UUID | None = None
 
 
 class TaskRead(TaskBase):
@@ -32,3 +34,15 @@ class TaskRead(TaskBase):
     created_by_user_id: UUID | None
     created_at: datetime
     updated_at: datetime
+
+
+class TaskCommentCreate(SQLModel):
+    message: str
+
+
+class TaskCommentRead(SQLModel):
+    id: UUID
+    message: str | None
+    agent_id: UUID | None
+    task_id: UUID | None
+    created_at: datetime

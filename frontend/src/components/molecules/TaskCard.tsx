@@ -8,11 +8,29 @@ interface TaskCardProps {
   status: string;
   assignee?: string;
   due?: string;
+  onClick?: () => void;
 }
 
-export function TaskCard({ title, status, assignee, due }: TaskCardProps) {
+export function TaskCard({
+  title,
+  status,
+  assignee,
+  due,
+  onClick,
+}: TaskCardProps) {
   return (
-    <Card className="border border-[color:var(--border)] bg-[color:var(--surface)]">
+    <Card
+      className="cursor-pointer border border-[color:var(--border)] bg-[color:var(--surface)] transition hover:border-[color:var(--border-strong)]"
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClick?.();
+        }
+      }}
+    >
       <CardContent className="space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-2">

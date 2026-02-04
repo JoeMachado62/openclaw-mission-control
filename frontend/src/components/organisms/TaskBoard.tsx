@@ -10,12 +10,14 @@ type Task = {
   title: string;
   status: string;
   due_at?: string | null;
+  assignee?: string;
 };
 
 type TaskBoardProps = {
   tasks: Task[];
   onCreateTask: () => void;
   isCreateDisabled?: boolean;
+  onTaskSelect?: (task: Task) => void;
 };
 
 const columns = [
@@ -41,6 +43,7 @@ export function TaskBoard({
   tasks,
   onCreateTask,
   isCreateDisabled = false,
+  onTaskSelect,
 }: TaskBoardProps) {
   const grouped = useMemo(() => {
     const buckets: Record<string, Task[]> = {};
@@ -85,7 +88,9 @@ export function TaskBoard({
                   key={task.id}
                   title={task.title}
                   status={column.status}
+                  assignee={task.assignee}
                   due={formatDueDate(task.due_at)}
+                  onClick={() => onTaskSelect?.(task)}
                 />
               ))}
             </div>

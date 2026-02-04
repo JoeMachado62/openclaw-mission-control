@@ -40,6 +40,21 @@ type Task = {
   status: string;
   priority: string;
   due_at?: string | null;
+  assigned_agent_id?: string | null;
+};
+
+type Agent = {
+  id: string;
+  name: string;
+  board_id?: string | null;
+};
+
+type TaskComment = {
+  id: string;
+  message?: string | null;
+  agent_id?: string | null;
+  task_id?: string | null;
+  created_at: string;
 };
 
 const apiBase =
@@ -61,8 +76,14 @@ export default function BoardDetailPage() {
 
   const [board, setBoard] = useState<Board | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [comments, setComments] = useState<TaskComment[]>([]);
+  const [isCommentsLoading, setIsCommentsLoading] = useState(false);
+  const [commentsError, setCommentsError] = useState<string | null>(null);
+  const [isCommentsOpen, setIsCommentsOpen] = useState(false);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -82,13 +103,18 @@ export default function BoardDetailPage() {
     setError(null);
     try {
       const token = await getToken();
-      const [boardResponse, tasksResponse] = await Promise.all([
+      const [boardResponse, tasksResponse, agentsResponse] = await Promise.all([
         fetch(`${apiBase}/api/v1/boards/${boardId}`, {
           headers: {
             Authorization: token ? `Bearer ${token}` : "",
           },
         }),
         fetch(`${apiBase}/api/v1/boards/${boardId}/tasks`, {
+          headers: {
+            Authorization: token ? `Bearer ${token}` : "",
+          },
+        }),
+        fetch(`${apiBase}/api/v1/agents`, {
           headers: {
             Authorization: token ? `Bearer ${token}` : "",
           },
@@ -101,11 +127,16 @@ export default function BoardDetailPage() {
       if (!tasksResponse.ok) {
         throw new Error("Unable to load tasks.");
       }
+      if (!agentsResponse.ok) {
+        throw new Error("Unable to load agents.");
+      }
 
       const boardData = (await boardResponse.json()) as Board;
       const taskData = (await tasksResponse.json()) as Task[];
+      const agentData = (await agentsResponse.json()) as Agent[];
       setBoard(boardData);
       setTasks(taskData);
+      setAgents(agentData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
@@ -165,6 +196,74 @@ export default function BoardDetailPage() {
     }
   };
 
+  const assigneeById = useMemo(() => {
+    const map = new Map<string, string>();
+    agents
+      .filter((agent) => !boardId || agent.board_id === boardId)
+      .forEach((agent) => {
+        map.set(agent.id, agent.name);
+      });
+    return map;
+  }, [agents, boardId]);
+
+  const displayTasks = useMemo(
+    () =>
+      tasks.map((task) => ({
+        ...task,
+        assignee: task.assigned_agent_id
+          ? assigneeById.get(task.assigned_agent_id)
+          : undefined,
+      })),
+    [tasks, assigneeById],
+  );
+
+  const loadComments = async (taskId: string) => {
+    if (!isSignedIn || !boardId) return;
+    setIsCommentsLoading(true);
+    setCommentsError(null);
+    try {
+      const token = await getToken();
+      const response = await fetch(
+        `${apiBase}/api/v1/boards/${boardId}/tasks/${taskId}/comments`,
+        {
+          headers: { Authorization: token ? `Bearer ${token}` : "" },
+        },
+      );
+      if (!response.ok) {
+        throw new Error("Unable to load comments.");
+      }
+      const data = (await response.json()) as TaskComment[];
+      setComments(data);
+    } catch (err) {
+      setCommentsError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setIsCommentsLoading(false);
+    }
+  };
+
+  const openComments = (task: Task) => {
+    setSelectedTask(task);
+    setIsCommentsOpen(true);
+    void loadComments(task.id);
+  };
+
+  const closeComments = () => {
+    setIsCommentsOpen(false);
+    setSelectedTask(null);
+    setComments([]);
+    setCommentsError(null);
+  };
+
+  const formatCommentTimestamp = (value: string) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "—";
+    return date.toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
   return (
     <DashboardShell>
@@ -215,13 +314,71 @@ export default function BoardDetailPage() {
             </div>
           ) : (
             <TaskBoard
-              tasks={tasks}
+              tasks={displayTasks}
               onCreateTask={() => setIsDialogOpen(true)}
               isCreateDisabled={isCreating}
+              onTaskSelect={openComments}
             />
           )}
         </div>
       </SignedIn>
+
+      <Dialog open={isCommentsOpen} onOpenChange={(open) => {
+        if (!open) {
+          closeComments();
+        }
+      }}>
+        <DialogContent aria-label="Task comments">
+          <DialogHeader>
+            <DialogTitle>{selectedTask?.title ?? "Task"}</DialogTitle>
+            <DialogDescription>
+              {selectedTask?.description || "Task details and discussion."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-3">
+              <div className="text-xs font-semibold uppercase tracking-[0.3em] text-quiet">
+                Comments
+              </div>
+              {isCommentsLoading ? (
+                <p className="text-sm text-muted">Loading comments…</p>
+              ) : commentsError ? (
+                <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3 text-xs text-muted">
+                  {commentsError}
+                </div>
+              ) : comments.length === 0 ? (
+                <p className="text-sm text-muted">No comments yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {comments.map((comment) => (
+                    <div
+                      key={comment.id}
+                      className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3"
+                    >
+                      <div className="flex items-center justify-between text-xs text-muted">
+                        <span>
+                          {comment.agent_id
+                            ? assigneeById.get(comment.agent_id) ?? "Agent"
+                            : "Admin"}
+                        </span>
+                        <span>{formatCommentTimestamp(comment.created_at)}</span>
+                      </div>
+                      <p className="mt-2 text-sm text-strong">
+                        {comment.message || "—"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeComments}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={isDialogOpen}
