@@ -67,7 +67,13 @@ async def _http_request(method: str, path: str, payload: dict[str, Any] | None =
             )
         if not response.content:
             return None
-        return response.json()
+        try:
+            return response.json()
+        except ValueError as exc:
+            preview = response.text.strip()[:200] or "<empty>"
+            raise OpenClawGatewayError(
+                f"Non-JSON response from gateway: {preview}"
+            ) from exc
     except OpenClawGatewayError:
         raise
     except Exception as exc:  # pragma: no cover - transport errors
@@ -183,13 +189,22 @@ async def ensure_session(session_key: str, label: str | None = None) -> Any:
 
 
 async def list_cron_jobs() -> Any:
-    return await _http_request("GET", "/api/v1/cron/jobs")
+    try:
+        return await _http_request("GET", "/api/v1/cron/jobs")
+    except OpenClawGatewayError:
+        return await _http_request("GET", "/cron/jobs")
 
 
 async def upsert_cron_job(job: dict[str, Any]) -> Any:
-    return await _http_request("POST", "/api/v1/cron/jobs", payload=job)
+    try:
+        return await _http_request("POST", "/api/v1/cron/jobs", payload=job)
+    except OpenClawGatewayError:
+        return await _http_request("POST", "/cron/jobs", payload=job)
 
 
 async def delete_cron_job(name: str) -> Any:
     safe_name = quote(name, safe="")
-    return await _http_request("DELETE", f"/api/v1/cron/jobs/{safe_name}")
+    try:
+        return await _http_request("DELETE", f"/api/v1/cron/jobs/{safe_name}")
+    except OpenClawGatewayError:
+        return await _http_request("DELETE", f"/cron/jobs/{safe_name}")
