@@ -14,6 +14,7 @@ const STATUS_STYLES: Record<
   busy: "warning",
   provisioning: "warning",
   offline: "outline",
+  deleting: "danger",
 };
 
 export function StatusPill({ status }: { status: string }) {

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, select_autoescape
@@ -22,6 +24,8 @@ TEMPLATE_FILES = [
     "USER.md",
 ]
 
+DEFAULT_HEARTBEAT_CONFIG = {"every": "10m", "target": "none"}
+
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[3]
@@ -34,6 +38,21 @@ def _templates_root() -> Path:
 def _slugify(value: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
     return slug or uuid4().hex
+
+
+def _agent_key(agent: Agent) -> str:
+    session_key = agent.openclaw_session_id or ""
+    if session_key.startswith("agent:"):
+        parts = session_key.split(":")
+        if len(parts) >= 2 and parts[1]:
+            return parts[1]
+    return _slugify(agent.name)
+
+
+def _heartbeat_config(agent: Agent) -> dict[str, Any]:
+    if agent.heartbeat_config:
+        return agent.heartbeat_config
+    return DEFAULT_HEARTBEAT_CONFIG.copy()
 
 
 def _template_env() -> Environment:
@@ -69,15 +88,14 @@ def _workspace_path(agent_name: str, workspace_root: str) -> str:
     return f"{root}/{_slugify(agent_name)}"
 
 
-def build_provisioning_message(agent: Agent, board: Board, auth_token: str) -> str:
+def _build_context(agent: Agent, board: Board, auth_token: str) -> dict[str, str]:
     agent_id = str(agent.id)
     workspace_root = board.gateway_workspace_root or "~/.openclaw/workspaces"
     workspace_path = _workspace_path(agent.name, workspace_root)
     session_key = agent.openclaw_session_id or ""
     base_url = settings.base_url or "REPLACE_WITH_BASE_URL"
     main_session_key = board.gateway_main_session_key or "agent:main:main"
-
-    context = {
+    return {
         "agent_name": agent.name,
         "agent_id": agent_id,
         "board_id": str(board.id),
@@ -93,20 +111,34 @@ def build_provisioning_message(agent: Agent, board: Board, auth_token: str) -> s
         "user_notes": "Fill in user context.",
     }
 
-    templates = _read_templates(context)
 
-    file_blocks = "".join(
+def _build_file_blocks(context: dict[str, str]) -> str:
+    templates = _read_templates(context)
+    return "".join(
         _render_file_block(name, templates.get(name, "")) for name in TEMPLATE_FILES
     )
 
+
+def build_provisioning_message(agent: Agent, board: Board, auth_token: str) -> str:
+    context = _build_context(agent, board, auth_token)
+    file_blocks = _build_file_blocks(context)
+    heartbeat_snippet = json.dumps(
+        {
+            "id": _agent_key(agent),
+            "workspace": context["workspace_path"],
+            "heartbeat": _heartbeat_config(agent),
+        },
+        indent=2,
+        sort_keys=True,
+    )
     return (
         "Provision a new OpenClaw agent workspace.\n\n"
-        f"Agent name: {agent.name}\n"
-        f"Agent id: {agent_id}\n"
-        f"Session key: {session_key}\n"
-        f"Workspace path: {workspace_path}\n\n"
-        f"Base URL: {base_url}\n"
-        f"Auth token: {auth_token}\n\n"
+        f"Agent name: {context['agent_name']}\n"
+        f"Agent id: {context['agent_id']}\n"
+        f"Session key: {context['session_key']}\n"
+        f"Workspace path: {context['workspace_path']}\n\n"
+        f"Base URL: {context['base_url']}\n"
+        f"Auth token: {context['auth_token']}\n\n"
         "Steps:\n"
         "0) IMPORTANT: Do NOT replace or repurpose the main agent. Keep "
         f"{context['main_session_key']} unchanged and its workspace intact.\n"
@@ -115,7 +147,56 @@ def build_provisioning_message(agent: Agent, board: Board, auth_token: str) -> s
         "3) Update TOOLS.md if BASE_URL/AUTH_TOKEN must change.\n"
         "4) Leave BOOTSTRAP.md in place; the agent should run it on first start and delete it.\n"
         "5) Register agent id in OpenClaw so it uses this workspace path "
-        "(never overwrite the main agent session).\n\n"
+        "(never overwrite the main agent session).\n"
+        "   IMPORTANT: Do NOT use ~/.openclaw/workspace-<name>. The canonical path "
+        "is ~/.openclaw/workspaces/<slug>.\n"
+        "6) Add/update the per-agent heartbeat config in the gateway config "
+        "for this agent (merge into agents.list entry):\n"
+        "```json\n"
+        f"{heartbeat_snippet}\n"
+        "```\n"
+        "Note: if any agents.list entry defines heartbeat, only those agents "
+        "run heartbeats.\n\n"
+        "Files:" + file_blocks
+    )
+
+
+def build_update_message(agent: Agent, board: Board, auth_token: str) -> str:
+    context = _build_context(agent, board, auth_token)
+    file_blocks = _build_file_blocks(context)
+    heartbeat_snippet = json.dumps(
+        {
+            "id": _agent_key(agent),
+            "workspace": context["workspace_path"],
+            "heartbeat": _heartbeat_config(agent),
+        },
+        indent=2,
+        sort_keys=True,
+    )
+    return (
+        "Update an existing OpenClaw agent workspace.\n\n"
+        f"Agent name: {context['agent_name']}\n"
+        f"Agent id: {context['agent_id']}\n"
+        f"Session key: {context['session_key']}\n"
+        f"Workspace path: {context['workspace_path']}\n\n"
+        f"Base URL: {context['base_url']}\n"
+        f"Auth token: {context['auth_token']}\n\n"
+        "Steps:\n"
+        "0) IMPORTANT: Do NOT replace or repurpose the main agent. Keep "
+        f"{context['main_session_key']} unchanged and its workspace intact.\n"
+        "1) Locate the existing workspace directory (do NOT create a new one or change its path).\n"
+        "2) Overwrite the files below with the exact contents.\n"
+        "3) Update TOOLS.md with the new BASE_URL/AUTH_TOKEN/SESSION_KEY values.\n"
+        "4) Do NOT create a new agent or session; update the existing one in place.\n"
+        "5) Keep BOOTSTRAP.md only if it already exists; do not recreate it if missing.\n\n"
+        "   IMPORTANT: Do NOT use ~/.openclaw/workspace-<name>. The canonical path "
+        "is ~/.openclaw/workspaces/<slug>.\n"
+        "6) Update the per-agent heartbeat config in the gateway config for this agent:\n"
+        "```json\n"
+        f"{heartbeat_snippet}\n"
+        "```\n"
+        "Note: if any agents.list entry defines heartbeat, only those agents "
+        "run heartbeats.\n\n"
         "Files:" + file_blocks
     )
 
@@ -131,4 +212,18 @@ async def send_provisioning_message(
     config = GatewayConfig(url=board.gateway_url, token=board.gateway_token)
     await ensure_session(main_session, config=config, label="Main Agent")
     message = build_provisioning_message(agent, board, auth_token)
+    await send_message(message, session_key=main_session, config=config, deliver=False)
+
+
+async def send_update_message(
+    agent: Agent,
+    board: Board,
+    auth_token: str,
+) -> None:
+    main_session = board.gateway_main_session_key or "agent:main:main"
+    if not board.gateway_url:
+        return
+    config = GatewayConfig(url=board.gateway_url, token=board.gateway_token)
+    await ensure_session(main_session, config=config, label="Main Agent")
+    message = build_update_message(agent, board, auth_token)
     await send_message(message, session_key=main_session, config=config, deliver=False)

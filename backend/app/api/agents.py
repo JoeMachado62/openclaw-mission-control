@@ -9,13 +9,13 @@ from sqlmodel import Session, col, select
 from sqlalchemy import update
 
 from app.api.deps import ActorContext, require_admin_auth, require_admin_or_agent
-from app.core.agent_tokens import generate_agent_token, hash_agent_token
+from app.core.agent_tokens import generate_agent_token, hash_agent_token, verify_agent_token
 from app.core.auth import AuthContext
+from app.core.config import settings
 from app.db.session import get_session
 from app.integrations.openclaw_gateway import (
     GatewayConfig,
     OpenClawGatewayError,
-    delete_session,
     ensure_session,
     send_message,
 )
@@ -24,13 +24,18 @@ from app.models.activity_events import ActivityEvent
 from app.models.boards import Board
 from app.schemas.agents import (
     AgentCreate,
+    AgentDeleteConfirm,
     AgentHeartbeat,
     AgentHeartbeatCreate,
     AgentRead,
     AgentUpdate,
 )
 from app.services.activity_log import record_activity
-from app.services.agent_provisioning import send_provisioning_message
+from app.services.agent_provisioning import (
+    DEFAULT_HEARTBEAT_CONFIG,
+    send_provisioning_message,
+    send_update_message,
+)
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
@@ -82,6 +87,8 @@ async def _ensure_gateway_session(
 
 def _with_computed_status(agent: Agent) -> Agent:
     now = datetime.utcnow()
+    if agent.status == "deleting":
+        return agent
     if agent.last_seen_at is None:
         agent.status = "provisioning"
     elif now - agent.last_seen_at > OFFLINE_AFTER:
@@ -98,11 +105,14 @@ def _record_heartbeat(session: Session, agent: Agent) -> None:
     )
 
 
-def _record_provisioning_failure(session: Session, agent: Agent, error: str) -> None:
+def _record_instruction_failure(
+    session: Session, agent: Agent, error: str, action: str
+) -> None:
+    action_label = action.replace("_", " ").capitalize()
     record_activity(
         session,
-        event_type="agent.provision.failed",
-        message=f"Provisioning message failed: {error}",
+        event_type=f"agent.{action}.failed",
+        message=f"{action_label} message failed: {error}",
         agent_id=agent.id,
     )
 
@@ -116,10 +126,12 @@ def _record_wakeup_failure(session: Session, agent: Agent, error: str) -> None:
     )
 
 
-async def _send_wakeup_message(agent: Agent, config: GatewayConfig) -> None:
+async def _send_wakeup_message(
+    agent: Agent, config: GatewayConfig, verb: str = "provisioned"
+) -> None:
     session_key = agent.openclaw_session_id or _build_session_key(agent.name)
     message = (
-        f"Hello {agent.name}. Your workspace has been provisioned.\n\n"
+        f"Hello {agent.name}. Your workspace has been {verb}.\n\n"
         "Start the agent, run BOOT.md, and if BOOTSTRAP.md exists run it once "
         "then delete it. Begin heartbeats after startup."
     )
@@ -147,6 +159,8 @@ async def create_agent(
     agent.status = "provisioning"
     raw_token = generate_agent_token()
     agent.agent_token_hash = hash_agent_token(raw_token)
+    if agent.heartbeat_config is None:
+        agent.heartbeat_config = DEFAULT_HEARTBEAT_CONFIG.copy()
     session_key, session_error = await _ensure_gateway_session(agent.name, config)
     agent.openclaw_session_id = session_key
     session.add(agent)
@@ -177,11 +191,11 @@ async def create_agent(
             agent_id=agent.id,
         )
     except OpenClawGatewayError as exc:
-        _record_provisioning_failure(session, agent, str(exc))
+        _record_instruction_failure(session, agent, str(exc), "provision")
         _record_wakeup_failure(session, agent, str(exc))
         session.commit()
     except Exception as exc:  # pragma: no cover - unexpected provisioning errors
-        _record_provisioning_failure(session, agent, str(exc))
+        _record_instruction_failure(session, agent, str(exc), "provision")
         _record_wakeup_failure(session, agent, str(exc))
         session.commit()
     return agent
@@ -222,6 +236,8 @@ async def update_agent(
     for key, value in updates.items():
         setattr(agent, key, value)
     agent.updated_at = datetime.utcnow()
+    if agent.heartbeat_config is None:
+        agent.heartbeat_config = DEFAULT_HEARTBEAT_CONFIG.copy()
     session.add(agent)
     session.commit()
     session.refresh(agent)
@@ -236,7 +252,7 @@ async def update_agent(
             session.commit()
             session.refresh(agent)
     except OpenClawGatewayError as exc:
-        _record_provisioning_failure(session, agent, str(exc))
+        _record_instruction_failure(session, agent, str(exc), "update")
         session.commit()
     raw_token = generate_agent_token()
     agent.agent_token_hash = hash_agent_token(raw_token)
@@ -244,12 +260,12 @@ async def update_agent(
     session.commit()
     session.refresh(agent)
     try:
-        await send_provisioning_message(agent, board, raw_token)
-        await _send_wakeup_message(agent, config)
+        await send_update_message(agent, board, raw_token)
+        await _send_wakeup_message(agent, config, verb="updated")
         record_activity(
             session,
-            event_type="agent.reprovisioned",
-            message=f"Re-provisioned agent {agent.name}.",
+            event_type="agent.updated",
+            message=f"Updated agent {agent.name}.",
             agent_id=agent.id,
         )
         record_activity(
@@ -260,11 +276,11 @@ async def update_agent(
         )
         session.commit()
     except OpenClawGatewayError as exc:
-        _record_provisioning_failure(session, agent, str(exc))
+        _record_instruction_failure(session, agent, str(exc), "update")
         _record_wakeup_failure(session, agent, str(exc))
         session.commit()
     except Exception as exc:  # pragma: no cover - unexpected provisioning errors
-        _record_provisioning_failure(session, agent, str(exc))
+        _record_instruction_failure(session, agent, str(exc), "update")
         _record_wakeup_failure(session, agent, str(exc))
         session.commit()
     return _with_computed_status(agent)
@@ -307,7 +323,12 @@ async def heartbeat_or_create_agent(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
         board = _require_board(session, payload.board_id)
         config = _require_gateway_config(board)
-        agent = Agent(name=payload.name, status="provisioning", board_id=board.id)
+        agent = Agent(
+            name=payload.name,
+            status="provisioning",
+            board_id=board.id,
+            heartbeat_config=DEFAULT_HEARTBEAT_CONFIG.copy(),
+        )
         raw_token = generate_agent_token()
         agent.agent_token_hash = hash_agent_token(raw_token)
         session_key, session_error = await _ensure_gateway_session(agent.name, config)
@@ -340,11 +361,11 @@ async def heartbeat_or_create_agent(
                 agent_id=agent.id,
             )
         except OpenClawGatewayError as exc:
-            _record_provisioning_failure(session, agent, str(exc))
+            _record_instruction_failure(session, agent, str(exc), "provision")
             _record_wakeup_failure(session, agent, str(exc))
             session.commit()
         except Exception as exc:  # pragma: no cover - unexpected provisioning errors
-            _record_provisioning_failure(session, agent, str(exc))
+            _record_instruction_failure(session, agent, str(exc), "provision")
             _record_wakeup_failure(session, agent, str(exc))
             session.commit()
     elif actor.actor_type == "agent" and actor.agent and actor.agent.id != agent.id:
@@ -352,6 +373,8 @@ async def heartbeat_or_create_agent(
     elif agent.agent_token_hash is None and actor.actor_type == "user":
         raw_token = generate_agent_token()
         agent.agent_token_hash = hash_agent_token(raw_token)
+        if agent.heartbeat_config is None:
+            agent.heartbeat_config = DEFAULT_HEARTBEAT_CONFIG.copy()
         session.add(agent)
         session.commit()
         session.refresh(agent)
@@ -367,11 +390,11 @@ async def heartbeat_or_create_agent(
                 agent_id=agent.id,
             )
         except OpenClawGatewayError as exc:
-            _record_provisioning_failure(session, agent, str(exc))
+            _record_instruction_failure(session, agent, str(exc), "provision")
             _record_wakeup_failure(session, agent, str(exc))
             session.commit()
         except Exception as exc:  # pragma: no cover - unexpected provisioning errors
-            _record_provisioning_failure(session, agent, str(exc))
+            _record_instruction_failure(session, agent, str(exc), "provision")
             _record_wakeup_failure(session, agent, str(exc))
             session.commit()
     elif not agent.openclaw_session_id:
@@ -414,51 +437,104 @@ def delete_agent(
     auth: AuthContext = Depends(require_admin_auth),
 ) -> dict[str, bool]:
     agent = session.get(Agent, agent_id)
-    if agent:
-        board = _require_board(session, str(agent.board_id) if agent.board_id else None)
-        config = _require_gateway_config(board)
-        async def _gateway_cleanup() -> None:
-            if agent.openclaw_session_id:
-                await delete_session(agent.openclaw_session_id, config=config)
-            main_session = board.gateway_main_session_key or "agent:main:main"
-            if main_session:
-                workspace_root = (
-                    board.gateway_workspace_root or "~/.openclaw/workspaces"
-                )
-                workspace_path = f"{workspace_root.rstrip('/')}/{_slugify(agent.name)}"
-                cleanup_message = (
-                    "Cleanup request for deleted agent.\n\n"
-                    f"Agent name: {agent.name}\n"
-                    f"Agent id: {agent.id}\n"
-                    f"Session key: {agent.openclaw_session_id or _build_session_key(agent.name)}\n"
-                    f"Workspace path: {workspace_path}\n\n"
-                    "Actions:\n"
-                    "1) Remove the workspace directory.\n"
-                    "2) Delete any lingering session artifacts.\n"
-                    "Reply NO_REPLY."
-                )
-                await ensure_session(main_session, config=config, label="Main Agent")
-                await send_message(
-                    cleanup_message,
-                    session_key=main_session,
-                    config=config,
-                    deliver=False,
-                )
+    if agent is None:
+        return {"ok": True}
+    if agent.status == "deleting" and agent.delete_confirm_token_hash:
+        return {"ok": True}
 
-        try:
-            import asyncio
+    board = _require_board(session, str(agent.board_id) if agent.board_id else None)
+    config = _require_gateway_config(board)
+    raw_token = generate_agent_token()
+    agent.delete_confirm_token_hash = hash_agent_token(raw_token)
+    agent.delete_requested_at = datetime.utcnow()
+    agent.status = "deleting"
+    agent.updated_at = datetime.utcnow()
+    session.add(agent)
+    record_activity(
+        session,
+        event_type="agent.delete.requested",
+        message=f"Delete requested for {agent.name}.",
+        agent_id=agent.id,
+    )
+    session.commit()
 
-            asyncio.run(_gateway_cleanup())
-        except OpenClawGatewayError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"Gateway cleanup failed: {exc}",
-            ) from exc
-        session.execute(
-            update(ActivityEvent)
-            .where(col(ActivityEvent.agent_id) == agent.id)
-            .values(agent_id=None)
+    async def _gateway_cleanup_request() -> None:
+        main_session = board.gateway_main_session_key or "agent:main:main"
+        if not main_session:
+            return
+        workspace_root = board.gateway_workspace_root or "~/.openclaw/workspaces"
+        workspace_path = f"{workspace_root.rstrip('/')}/{_slugify(agent.name)}"
+        base_url = settings.base_url or "REPLACE_WITH_BASE_URL"
+        cleanup_message = (
+            "Cleanup request for deleted agent.\n\n"
+            f"Agent name: {agent.name}\n"
+            f"Agent id: {agent.id}\n"
+            f"Session key: {agent.openclaw_session_id or _build_session_key(agent.name)}\n"
+            f"Workspace path: {workspace_path}\n\n"
+            "Actions:\n"
+            "1) Remove the workspace directory.\n"
+            "2) Delete the agent session from the gateway.\n"
+            "3) Confirm deletion by calling:\n"
+            f"   POST {base_url}/api/v1/agents/{agent.id}/delete/confirm\n"
+            "   Body: {\"token\": \"" + raw_token + "\"}\n"
+            "Reply NO_REPLY."
         )
-        session.delete(agent)
+        await ensure_session(main_session, config=config, label="Main Agent")
+        await send_message(
+            cleanup_message,
+            session_key=main_session,
+            config=config,
+            deliver=False,
+        )
+
+    try:
+        import asyncio
+
+        asyncio.run(_gateway_cleanup_request())
+    except OpenClawGatewayError as exc:
+        _record_instruction_failure(session, agent, str(exc), "delete")
         session.commit()
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Gateway cleanup request failed: {exc}",
+        ) from exc
+
+    return {"ok": True}
+
+
+@router.post("/{agent_id}/delete/confirm")
+def confirm_delete_agent(
+    agent_id: str,
+    payload: AgentDeleteConfirm,
+    session: Session = Depends(get_session),
+) -> dict[str, bool]:
+    agent = session.get(Agent, agent_id)
+    if agent is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    if agent.status != "deleting":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Agent is not pending deletion.",
+        )
+    if not agent.delete_confirm_token_hash:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Delete confirmation not requested.",
+        )
+    if not verify_agent_token(payload.token, agent.delete_confirm_token_hash):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid token.")
+
+    record_activity(
+        session,
+        event_type="agent.delete.confirmed",
+        message=f"Deleted agent {agent.name}.",
+        agent_id=None,
+    )
+    session.execute(
+        update(ActivityEvent)
+        .where(col(ActivityEvent.agent_id) == agent.id)
+        .values(agent_id=None)
+    )
+    session.delete(agent)
+    session.commit()
     return {"ok": True}

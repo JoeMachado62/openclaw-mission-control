@@ -39,6 +39,8 @@ export default function NewAgentPage() {
   const [name, setName] = useState("");
   const [boards, setBoards] = useState<Board[]>([]);
   const [boardId, setBoardId] = useState<string>("");
+  const [heartbeatEvery, setHeartbeatEvery] = useState("10m");
+  const [heartbeatTarget, setHeartbeatTarget] = useState("none");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -89,7 +91,14 @@ export default function NewAgentPage() {
           "Content-Type": "application/json",
           Authorization: token ? `Bearer ${token}` : "",
         },
-        body: JSON.stringify({ name: trimmed, board_id: boardId }),
+        body: JSON.stringify({
+          name: trimmed,
+          board_id: boardId,
+          heartbeat_config: {
+            every: heartbeatEvery.trim() || "10m",
+            target: heartbeatTarget,
+          },
+        }),
       });
       if (!response.ok) {
         throw new Error("Unable to create agent.");
@@ -164,6 +173,38 @@ export default function NewAgentPage() {
                   Create a board before adding agents.
                 </p>
               ) : null}
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-strong">
+                Heartbeat interval
+              </label>
+              <Input
+                value={heartbeatEvery}
+                onChange={(event) => setHeartbeatEvery(event.target.value)}
+                placeholder="e.g. 10m"
+                disabled={isLoading}
+              />
+              <p className="text-xs text-quiet">
+                Set how often this agent runs HEARTBEAT.md (e.g. 10m, 30m, 2h).
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-strong">
+                Heartbeat target
+              </label>
+              <Select
+                value={heartbeatTarget}
+                onValueChange={(value) => setHeartbeatTarget(value)}
+                disabled={isLoading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select target" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None (no outbound message)</SelectItem>
+                  <SelectItem value="last">Last channel</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             {error ? (
               <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3 text-xs text-muted">

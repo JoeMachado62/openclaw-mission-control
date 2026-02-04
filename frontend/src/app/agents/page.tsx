@@ -204,7 +204,7 @@ export default function AgentsPage() {
       if (!response.ok) {
         throw new Error("Unable to delete agent.");
       }
-      setAgents((prev) => prev.filter((agent) => agent.id !== deleteTarget.id));
+      await loadAgents();
       setDeleteTarget(null);
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : "Something went wrong.");

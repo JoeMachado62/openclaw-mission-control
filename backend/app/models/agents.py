@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 from uuid import UUID, uuid4
 
+from sqlalchemy import Column, JSON
 from sqlmodel import Field, SQLModel
 
 
@@ -15,6 +17,11 @@ class Agent(SQLModel, table=True):
     status: str = Field(default="provisioning", index=True)
     openclaw_session_id: str | None = Field(default=None, index=True)
     agent_token_hash: str | None = Field(default=None, index=True)
+    heartbeat_config: dict[str, Any] | None = Field(
+        default=None, sa_column=Column(JSON)
+    )
+    delete_requested_at: datetime | None = Field(default=None)
+    delete_confirm_token_hash: str | None = Field(default=None, index=True)
     last_seen_at: datetime | None = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

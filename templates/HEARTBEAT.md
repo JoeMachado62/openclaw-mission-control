@@ -9,7 +9,7 @@ If this file is empty, skip heartbeat work.
 - BOARD_ID
 
 ## Schedule
-- Run this heartbeat every 10 minutes.
+- Schedule is controlled by gateway heartbeat config (default: every 10 minutes).
 - On first boot, send one immediate check-in before the schedule starts.
 
 ## On every heartbeat

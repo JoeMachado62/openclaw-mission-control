@@ -25,6 +25,10 @@ type Agent = {
   id: string;
   name: string;
   board_id?: string | null;
+  heartbeat_config?: {
+    every?: string;
+    target?: string;
+  } | null;
 };
 
 type Board = {
@@ -44,6 +48,8 @@ export default function EditAgentPage() {
   const [name, setName] = useState("");
   const [boards, setBoards] = useState<Board[]>([]);
   const [boardId, setBoardId] = useState("");
+  const [heartbeatEvery, setHeartbeatEvery] = useState("10m");
+  const [heartbeatTarget, setHeartbeatTarget] = useState("none");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,9 +65,6 @@ export default function EditAgentPage() {
       }
       const data = (await response.json()) as Board[];
       setBoards(data);
-      if (!boardId && data.length > 0) {
-        setBoardId(data[0].id);
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     }
@@ -85,6 +88,12 @@ export default function EditAgentPage() {
       if (data.board_id) {
         setBoardId(data.board_id);
       }
+      if (data.heartbeat_config?.every) {
+        setHeartbeatEvery(data.heartbeat_config.every);
+      }
+      if (data.heartbeat_config?.target) {
+        setHeartbeatTarget(data.heartbeat_config.target);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
@@ -97,6 +106,17 @@ export default function EditAgentPage() {
     loadAgent();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSignedIn, agentId]);
+
+  useEffect(() => {
+    if (boardId) return;
+    if (agent?.board_id) {
+      setBoardId(agent.board_id);
+      return;
+    }
+    if (boards.length > 0) {
+      setBoardId(boards[0].id);
+    }
+  }, [agent, boards, boardId]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -120,7 +140,14 @@ export default function EditAgentPage() {
           "Content-Type": "application/json",
           Authorization: token ? `Bearer ${token}` : "",
         },
-        body: JSON.stringify({ name: trimmed, board_id: boardId }),
+        body: JSON.stringify({
+          name: trimmed,
+          board_id: boardId,
+          heartbeat_config: {
+            every: heartbeatEvery.trim() || "10m",
+            target: heartbeatTarget,
+          },
+        }),
       });
       if (!response.ok) {
         throw new Error("Unable to update agent.");
@@ -194,6 +221,38 @@ export default function EditAgentPage() {
                   Create a board before assigning agents.
                 </p>
               ) : null}
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-strong">
+                Heartbeat interval
+              </label>
+              <Input
+                value={heartbeatEvery}
+                onChange={(event) => setHeartbeatEvery(event.target.value)}
+                placeholder="e.g. 10m"
+                disabled={isLoading}
+              />
+              <p className="text-xs text-quiet">
+                Set how often this agent runs HEARTBEAT.md.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-strong">
+                Heartbeat target
+              </label>
+              <Select
+                value={heartbeatTarget}
+                onValueChange={(value) => setHeartbeatTarget(value)}
+                disabled={isLoading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select target" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None (no outbound message)</SelectItem>
+                  <SelectItem value="last">Last channel</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             {error ? (
               <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3 text-xs text-muted">

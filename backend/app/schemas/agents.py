@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from sqlmodel import SQLModel
@@ -10,6 +11,7 @@ class AgentBase(SQLModel):
     board_id: UUID | None = None
     name: str
     status: str = "provisioning"
+    heartbeat_config: dict[str, Any] | None = None
 
 
 class AgentCreate(AgentBase):
@@ -20,6 +22,7 @@ class AgentUpdate(SQLModel):
     board_id: UUID | None = None
     name: str | None = None
     status: str | None = None
+    heartbeat_config: dict[str, Any] | None = None
 
 
 class AgentRead(AgentBase):
@@ -37,3 +40,7 @@ class AgentHeartbeat(SQLModel):
 class AgentHeartbeatCreate(AgentHeartbeat):
     name: str
     board_id: UUID | None = None
+
+
+class AgentDeleteConfirm(SQLModel):
+    token: str

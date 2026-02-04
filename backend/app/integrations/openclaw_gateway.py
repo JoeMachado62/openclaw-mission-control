@@ -9,6 +9,7 @@ from uuid import uuid4
 
 import websockets
 
+from app.integrations.openclaw_gateway_protocol import PROTOCOL_VERSION
 
 
 class OpenClawGatewayError(RuntimeError):
@@ -64,23 +65,10 @@ async def _send_request(
     return await _await_response(ws, request_id)
 
 
-async def _handle_challenge(
-    ws: websockets.WebSocketClientProtocol,
-    first_message: str | bytes | None,
-    config: GatewayConfig,
-) -> None:
-    if not first_message:
-        return
-    if isinstance(first_message, bytes):
-        first_message = first_message.decode("utf-8")
-    data = json.loads(first_message)
-    if data.get("type") != "event" or data.get("event") != "connect.challenge":
-        return
-
-    connect_id = str(uuid4())
+def _build_connect_params(config: GatewayConfig) -> dict[str, Any]:
     params: dict[str, Any] = {
-        "minProtocol": 3,
-        "maxProtocol": 3,
+        "minProtocol": PROTOCOL_VERSION,
+        "maxProtocol": PROTOCOL_VERSION,
         "client": {
             "id": "gateway-client",
             "version": "1.0.0",
@@ -90,11 +78,26 @@ async def _handle_challenge(
     }
     if config.token:
         params["auth"] = {"token": config.token}
+    return params
+
+
+async def _ensure_connected(
+    ws: websockets.WebSocketClientProtocol,
+    first_message: str | bytes | None,
+    config: GatewayConfig,
+) -> None:
+    if first_message:
+        if isinstance(first_message, bytes):
+            first_message = first_message.decode("utf-8")
+        data = json.loads(first_message)
+        if data.get("type") != "event" or data.get("event") != "connect.challenge":
+            pass
+    connect_id = str(uuid4())
     response = {
         "type": "req",
         "id": connect_id,
         "method": "connect",
-        "params": params,
+        "params": _build_connect_params(config),
     }
     await ws.send(json.dumps(response))
     await _await_response(ws, connect_id)
@@ -114,7 +117,7 @@ async def openclaw_call(
                 first_message = await asyncio.wait_for(ws.recv(), timeout=2)
             except asyncio.TimeoutError:
                 first_message = None
-            await _handle_challenge(ws, first_message, config)
+            await _ensure_connected(ws, first_message, config)
             return await _send_request(ws, method, params)
     except OpenClawGatewayError:
         raise

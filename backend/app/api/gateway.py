@@ -13,6 +13,11 @@ from app.integrations.openclaw_gateway import (
     openclaw_call,
     send_message,
 )
+from app.integrations.openclaw_gateway_protocol import (
+    GATEWAY_EVENTS,
+    GATEWAY_METHODS,
+    PROTOCOL_VERSION,
+)
 from app.db.session import get_session
 from app.models.boards import Board
 
@@ -196,3 +201,14 @@ async def send_session_message(
     except OpenClawGatewayError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
     return {"ok": True}
+
+
+@router.get("/commands")
+async def gateway_commands(
+    auth: AuthContext = Depends(require_admin_auth),
+) -> dict[str, object]:
+    return {
+        "protocol_version": PROTOCOL_VERSION,
+        "methods": GATEWAY_METHODS,
+        "events": GATEWAY_EVENTS,
+    }
