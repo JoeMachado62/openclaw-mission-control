@@ -28,3 +28,7 @@ Write things down. Do not rely on short-term context.
 
 ## Heartbeats
 - HEARTBEAT.md defines what to do on each heartbeat.
+
+## Task updates
+- Log all task progress and results via the task comments endpoint.
+- Do not post task updates in chat/web channels.

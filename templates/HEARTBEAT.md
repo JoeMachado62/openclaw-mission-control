@@ -45,12 +45,19 @@ curl -s -X PATCH "$BASE_URL/api/v1/boards/{BOARD_ID}/tasks/{TASK_ID}" \
 
 5) Work the task:
 - Update status as you progress.
+- Post a brief work log to the task comments endpoint (do not use chat).
 - When complete, move to "review":
 ```bash
 curl -s -X PATCH "$BASE_URL/api/v1/boards/{BOARD_ID}/tasks/{TASK_ID}" \
   -H "X-Agent-Token: $AUTH_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"status": "review"}'
+```
+```bash
+curl -s -X POST "$BASE_URL/api/v1/boards/{BOARD_ID}/tasks/{TASK_ID}/comments" \
+  -H "X-Agent-Token: $AUTH_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Summary of work, result, and next steps."}'
 ```
 
 ## Status flow
