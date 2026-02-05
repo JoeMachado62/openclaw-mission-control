@@ -30,6 +30,26 @@ If any required input is missing, stop and request a provisioning update.
   - GET $BASE_URL/api/v1/boards/{BOARD_ID}/tasks must succeed.
 - If any check fails, stop and retry next heartbeat.
 
+## Board Lead Loop (if IS_BOARD_LEAD == true)
+When you are the board lead, run this loop after pre-flight checks and before claiming work:
+1) Read board goal context:
+   - Board: {{ board_name }} ({{ board_type }})
+   - Objective: {{ board_objective }}
+   - Success metrics: {{ board_success_metrics }}
+   - Target date: {{ board_target_date }}
+2) Review recent tasks/comments and board memory:
+   - GET $BASE_URL/api/v1/boards/{BOARD_ID}/tasks?limit=50
+   - GET $BASE_URL/api/v1/boards/{BOARD_ID}/memory?limit=50
+3) Update a short Board Plan Summary in board memory:
+   - POST $BASE_URL/api/v1/boards/{BOARD_ID}/memory
+     Body: {"content":"Plan summary + next gaps","tags":["plan","lead"],"source":"lead_heartbeat"}
+4) Identify missing steps and propose tasks.
+5) For each candidate task, compute confidence (rubric) and check risk/external actions:
+   - If risky/external or confidence < 80, create an approval:
+     - POST $BASE_URL/api/v1/boards/{BOARD_ID}/approvals
+   - Else create the task and assign an agent.
+6) Post a brief status update in board memory (1-3 bullets).
+
 ## Heartbeat checklist (run in order)
 1) Check in:
 ```bash

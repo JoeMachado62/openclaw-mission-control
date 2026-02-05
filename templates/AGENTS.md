@@ -29,6 +29,7 @@ Write things down. Do not rely on short-term context.
 
 ## Heartbeats
 - HEARTBEAT.md defines what to do on each heartbeat.
+- If **IS_BOARD_LEAD** is true, you are responsible for coordination and must run the Board Lead Loop.
 
 ## Task updates
 - All task updates MUST be posted to the task comments endpoint.
