@@ -13,6 +13,10 @@ baseline is Docker Compose plus a reverse proxy with TLS.
 
 ## Recommended baseline
 
+If you’re looking for the **dev-friendly self-host** path (single machine, Docker Compose defaults), start with the repo root README:
+- [Quick start (self-host with Docker Compose)](../../README.md#quick-start-self-host-with-docker-compose)
+
+
 - Docker Engine + Docker Compose v2
 - Reverse proxy: **Caddy** (simplest) or **nginx**
 - TLS via Let’s Encrypt
@@ -57,6 +61,7 @@ Recommended approach:
 
 Secrets guidelines:
 
+- **Clerk auth is required for now**: you must configure Clerk keys/JWKS for the app to work.
 - Never commit Clerk secret key.
 - Prefer passing secrets as environment variables from the host (or use Docker secrets if you later
   migrate to Swarm/K8s).
@@ -94,8 +99,9 @@ mission-control.example.com {
 ```
 
 Notes:
-- If the frontend calls the backend directly, ensure `NEXT_PUBLIC_API_URL` points to the public API
+- If the frontend calls the backend directly, ensure `NEXT_PUBLIC_API_URL` points to the **public, browser-reachable** API
   URL, not `localhost`.
+  - Example: `NEXT_PUBLIC_API_URL=https://api.mission-control.example.com`
 - If you route the backend under a path prefix, ensure backend routing supports it (or put it on a
   subdomain like `api.mission-control.example.com`).
 
