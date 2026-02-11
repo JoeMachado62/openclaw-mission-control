@@ -1,8 +1,10 @@
 # Troubleshooting
 
-This is the high-level troubleshooting entry point (minimal churn).
+## Deep dives
 
-- Deep-dive troubleshooting: [docs/troubleshooting/README.md](troubleshooting/README.md)
+- [Troubleshooting deep dive](troubleshooting/README.md)
+
+This is the high-level troubleshooting entry point (minimal churn).
 
 ## Quick triage
 

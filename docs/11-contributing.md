@@ -1,5 +1,10 @@
 # Contributing
 
+## Deep dives
+
+- [Coverage policy](coverage-policy.md)
+- [Testing guide](testing/README.md)
+
 ## How to contribute (first pass)
 - Follow the repo’s existing PR and review conventions.
 - Prefer small PRs.

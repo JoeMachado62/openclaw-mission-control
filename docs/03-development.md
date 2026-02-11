@@ -1,5 +1,9 @@
 # Development
 
+## Deep dives
+
+- [Testing guide](testing/README.md)
+
 This is the contributor-focused dev workflow for the Mission Control repo.
 
 ## Prereqs

@@ -1,5 +1,10 @@
 # Architecture
 
+## Deep dives
+
+- [Architecture deep dive](architecture/README.md)
+- [Gateway protocol](openclaw_gateway_ws.md)
+
 Mission Control is the **web UI + HTTP API** for operating OpenClaw. It’s where you manage boards, tasks, agents, approvals, and (optionally) gateway connections.
 
 > Auth note: **Clerk is required for now** (current product direction). The codebase includes gating so CI/local can run with placeholders, but real deployments should configure Clerk.
@@ -49,11 +54,3 @@ Automation/agents can use the “agent API surface”:
 - Auth via `X-Agent-Token`.
 
 See: `backend/app/api/agent.py`, `backend/app/core/agent_auth.py`.
-
-## Links to deeper docs
-
-- Existing deep-dive: `docs/architecture/README.md`
-- Deployment: [docs/deployment/README.md](deployment/README.md)
-- Production notes: [docs/production/README.md](production/README.md)
-- Gateway protocol: [docs/openclaw_gateway_ws.md](openclaw_gateway_ws.md)
-

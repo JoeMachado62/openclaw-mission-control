@@ -1,5 +1,9 @@
 # API reference (first pass)
 
+## Deep dives
+
+- [Gateway WebSocket protocol (API-ish)](openclaw_gateway_ws.md)
+
 This is a **map** of the Mission Control HTTP API surface. It’s intentionally light-weight for the first pass.
 
 ## Base

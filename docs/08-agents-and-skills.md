@@ -1,5 +1,10 @@
 # Agents & skills
 
+## Deep dives
+
+- [Gateway protocol](openclaw_gateway_ws.md)
+- [Gateway base config](openclaw_gateway_base_config.md)
+
 This page explains the automation model as it appears in Mission Control.
 
 ## Agent lifecycle (conceptual)
@@ -18,10 +23,6 @@ This page explains the automation model as it appears in Mission Control.
   - when to use them
   - required binaries/services
   - command patterns
-
-## Where this connects in the repo
-- Gateway protocol: [docs/openclaw_gateway_ws.md](openclaw_gateway_ws.md)
-- Gateway base config: [docs/openclaw_gateway_base_config.md](openclaw_gateway_base_config.md)
 
 ## Next
 - Add repo-specific guidance for authoring skills and where they live (once standardized).

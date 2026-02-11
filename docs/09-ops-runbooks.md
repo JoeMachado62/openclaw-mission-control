@@ -1,11 +1,12 @@
 # Ops / runbooks
 
-This page is the operator/SRE entry point. It intentionally links to existing deeper docs to minimize churn.
+## Deep dives
 
-## Where to start
-- Deployment: [docs/deployment/README.md](deployment/README.md)
-- Production checklist/notes: [docs/production/README.md](production/README.md)
-- Troubleshooting: [docs/troubleshooting/README.md](troubleshooting/README.md)
+- [Deployment](deployment/README.md)
+- [Production](production/README.md)
+- [Troubleshooting](troubleshooting/README.md)
+
+This page is the operator/SRE entry point. It intentionally links to existing deeper docs to minimize churn.
 
 ## “First 30 minutes” incident checklist
 
@@ -34,4 +35,3 @@ This page is the operator/SRE entry point. It intentionally links to existing de
 
 ## Backups / restore (placeholder)
 - Define backup cadence and restore steps once production deployment is finalized.
-
