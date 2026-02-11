@@ -57,6 +57,16 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title="Mission Control API", version="0.1.0", lifespan=lifespan)
 
+# OpenAPI customization (docs-only): reflect agent auth (X-Agent-Token) in the spec.
+from app.core.openapi import build_openapi  # noqa: E402
+
+
+def custom_openapi() -> dict:
+    return build_openapi(app_title=app.title, app_version=app.version, routes=app.routes)
+
+
+app.openapi = custom_openapi  # type: ignore[assignment]
+
 origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
 if origins:
     app.add_middleware(
