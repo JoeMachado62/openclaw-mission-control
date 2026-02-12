@@ -118,7 +118,7 @@ export function AgentsTable({
       },
       {
         accessorKey: "openclaw_session_id",
-        header: <span className="hidden sm:inline">Session</span>,
+        header: () => <span className="hidden sm:inline">Session</span>,
         cell: ({ row }) => (
           <span className="hidden text-sm text-slate-700 sm:inline">
             {truncate(row.original.openclaw_session_id)}
@@ -149,7 +149,7 @@ export function AgentsTable({
       },
       {
         accessorKey: "updated_at",
-        header: <span className="hidden md:inline">Updated</span>,
+        header: () => <span className="hidden md:inline">Updated</span>,
         cell: ({ row }) => (
           <span className="hidden md:inline">
             {dateCell(row.original.updated_at)}
