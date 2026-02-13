@@ -67,7 +67,13 @@ type EditCustomFieldFormProps = {
   onSubmit: (updates: TaskCustomFieldDefinitionUpdate) => Promise<void>;
 };
 
-const STRING_FIELD_TYPES = new Set(["text", "text_long", "date", "date_time", "url"]);
+const STRING_FIELD_TYPES = new Set([
+  "text",
+  "text_long",
+  "date",
+  "date_time",
+  "url",
+]);
 
 const parseDefaultValue = (
   fieldType: FormState["fieldType"],
@@ -92,11 +98,14 @@ const parseDefaultValue = (
   }
   if (fieldType === "boolean") {
     if (trimmed.toLowerCase() === "true") return { value: true, error: null };
-    if (trimmed.toLowerCase() === "false")
-      return { value: false, error: null };
+    if (trimmed.toLowerCase() === "false") return { value: false, error: null };
     return { value: null, error: "Default value must be true or false." };
   }
-  if (fieldType === "date" || fieldType === "date_time" || fieldType === "url") {
+  if (
+    fieldType === "date" ||
+    fieldType === "date_time" ||
+    fieldType === "url"
+  ) {
     return { value: trimmed, error: null };
   }
   if (fieldType === "json") {
@@ -198,7 +207,9 @@ function EditCustomFieldForm({
       trimmedValidationRegex &&
       !STRING_FIELD_TYPES.has(formState.fieldType)
     ) {
-      setSaveError("Validation regex is only supported for string field types.");
+      setSaveError(
+        "Validation regex is only supported for string field types.",
+      );
       return;
     }
     const parsedDefaultValue = parseDefaultValue(
@@ -455,7 +466,9 @@ function EditCustomFieldForm({
                 Loading boards…
               </div>
             ) : boardsError ? (
-              <div className="px-4 py-6 text-sm text-rose-700">{boardsError}</div>
+              <div className="px-4 py-6 text-sm text-rose-700">
+                {boardsError}
+              </div>
             ) : filteredBoards.length === 0 ? (
               <div className="px-4 py-6 text-sm text-slate-500">
                 No boards found.

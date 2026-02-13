@@ -63,7 +63,13 @@ const defaultFormState: FormState = {
   defaultValue: "",
 };
 
-const STRING_FIELD_TYPES = new Set(["text", "text_long", "date", "date_time", "url"]);
+const STRING_FIELD_TYPES = new Set([
+  "text",
+  "text_long",
+  "date",
+  "date_time",
+  "url",
+]);
 
 const parseDefaultValue = (
   fieldType: FormState["fieldType"],
@@ -88,11 +94,14 @@ const parseDefaultValue = (
   }
   if (fieldType === "boolean") {
     if (trimmed.toLowerCase() === "true") return { value: true, error: null };
-    if (trimmed.toLowerCase() === "false")
-      return { value: false, error: null };
+    if (trimmed.toLowerCase() === "false") return { value: false, error: null };
     return { value: null, error: "Default value must be true or false." };
   }
-  if (fieldType === "date" || fieldType === "date_time" || fieldType === "url") {
+  if (
+    fieldType === "date" ||
+    fieldType === "date_time" ||
+    fieldType === "url"
+  ) {
     return { value: trimmed, error: null };
   }
   if (fieldType === "json") {

@@ -580,17 +580,15 @@ const formatCustomFieldDetailValue = (
     const trimmed = value.trim();
     if (!trimmed) return "—";
     try {
-      // Validate URL before rendering as a link.
-      // eslint-disable-next-line no-new
-      new URL(trimmed);
+      const parsedUrl = new URL(trimmed);
       return (
         <a
-          href={trimmed}
+          href={parsedUrl.toString()}
           target="_blank"
           rel="noreferrer"
           className="inline-flex items-center gap-1 text-blue-700 underline decoration-blue-300 underline-offset-2 hover:text-blue-800"
         >
-          <span className="break-all">{trimmed}</span>
+          <span className="break-all">{parsedUrl.toString()}</span>
           <ArrowUpRight className="h-3.5 w-3.5 flex-shrink-0" />
         </a>
       );
@@ -601,8 +599,7 @@ const formatCustomFieldDetailValue = (
 
   if (fieldType === "json") {
     try {
-      const normalized =
-        typeof value === "string" ? JSON.parse(value) : value;
+      const normalized = typeof value === "string" ? JSON.parse(value) : value;
       return (
         <pre className="whitespace-pre-wrap break-words rounded border border-slate-200 bg-white px-2 py-1 font-mono text-xs leading-relaxed text-slate-800">
           {JSON.stringify(normalized, null, 2)}
@@ -615,7 +612,11 @@ const formatCustomFieldDetailValue = (
 
   if (fieldType === "text_long") {
     const text = customFieldInputText(value);
-    return text ? <span className="whitespace-pre-wrap break-words">{text}</span> : "—";
+    return text ? (
+      <span className="whitespace-pre-wrap break-words">{text}</span>
+    ) : (
+      "—"
+    );
   }
 
   return customFieldInputText(value) || "—";
@@ -634,7 +635,8 @@ const isCustomFieldVisible = (
   value: unknown,
 ): boolean => {
   if (definition.ui_visibility === "hidden") return false;
-  if (definition.ui_visibility === "if_set") return isCustomFieldValueSet(value);
+  if (definition.ui_visibility === "if_set")
+    return isCustomFieldValueSet(value);
   return true;
 };
 
@@ -644,7 +646,10 @@ const parseCustomFieldInputValue = (
 ): unknown | null => {
   const trimmed = text.trim();
   if (!trimmed) return null;
-  if (definition.field_type === "text" || definition.field_type === "text_long") {
+  if (
+    definition.field_type === "text" ||
+    definition.field_type === "text_long"
+  ) {
     return trimmed;
   }
   if (definition.field_type === "integer") {
@@ -739,7 +744,10 @@ const customFieldPatchPayload = (
 ): TaskCustomFieldValues =>
   definitions.reduce((acc, definition) => {
     const key = definition.field_key;
-    const currentValue = Object.prototype.hasOwnProperty.call(currentValues, key)
+    const currentValue = Object.prototype.hasOwnProperty.call(
+      currentValues,
+      key,
+    )
       ? currentValues[key]
       : null;
     const nextValue = Object.prototype.hasOwnProperty.call(nextValues, key)
@@ -2855,7 +2863,10 @@ export default function BoardDetailPage() {
       if (dueDateChanged) {
         updatePayload.due_at = localDateInputToUtcIso(editDueDate);
       }
-      if (customFieldValuesChanged && Object.keys(editCustomFieldPatch).length > 0) {
+      if (
+        customFieldValuesChanged &&
+        Object.keys(editCustomFieldPatch).length > 0
+      ) {
         updatePayload.custom_field_values = editCustomFieldPatch;
       }
 
@@ -4343,7 +4354,8 @@ export default function BoardDetailPage() {
               ) : (
                 <div className="space-y-3">
                   {boardCustomFieldDefinitions.map((definition) => {
-                    const fieldValue = editCustomFieldValues[definition.field_key];
+                    const fieldValue =
+                      editCustomFieldValues[definition.field_key];
                     if (!isCustomFieldVisible(definition, fieldValue)) {
                       return null;
                     }
@@ -4371,7 +4383,9 @@ export default function BoardDetailPage() {
                                   value === "unset" ? null : value === "true",
                               }))
                             }
-                            disabled={!selectedTask || isSavingTask || !canWrite}
+                            disabled={
+                              !selectedTask || isSavingTask || !canWrite
+                            }
                           >
                             <SelectTrigger>
                               <SelectValue placeholder="Optional" />
@@ -4389,10 +4403,11 @@ export default function BoardDetailPage() {
                             onChange={(event) =>
                               setEditCustomFieldValues((prev) => ({
                                 ...prev,
-                                [definition.field_key]: parseCustomFieldInputValue(
-                                  definition,
-                                  event.target.value,
-                                ),
+                                [definition.field_key]:
+                                  parseCustomFieldInputValue(
+                                    definition,
+                                    event.target.value,
+                                  ),
                               }))
                             }
                             placeholder={
@@ -4402,7 +4417,9 @@ export default function BoardDetailPage() {
                                 : "Optional"
                             }
                             rows={definition.field_type === "text_long" ? 3 : 4}
-                            disabled={!selectedTask || isSavingTask || !canWrite}
+                            disabled={
+                              !selectedTask || isSavingTask || !canWrite
+                            }
                           />
                         ) : (
                           <Input
@@ -4418,15 +4435,20 @@ export default function BoardDetailPage() {
                                       ? "url"
                                       : "text"
                             }
-                            step={definition.field_type === "decimal" ? "any" : undefined}
+                            step={
+                              definition.field_type === "decimal"
+                                ? "any"
+                                : undefined
+                            }
                             value={customFieldInputText(fieldValue)}
                             onChange={(event) =>
                               setEditCustomFieldValues((prev) => ({
                                 ...prev,
-                                [definition.field_key]: parseCustomFieldInputValue(
-                                  definition,
-                                  event.target.value,
-                                ),
+                                [definition.field_key]:
+                                  parseCustomFieldInputValue(
+                                    definition,
+                                    event.target.value,
+                                  ),
                               }))
                             }
                             placeholder={
@@ -4435,7 +4457,9 @@ export default function BoardDetailPage() {
                                 ? `Default: ${customFieldInputText(definition.default_value)}`
                                 : "Optional"
                             }
-                            disabled={!selectedTask || isSavingTask || !canWrite}
+                            disabled={
+                              !selectedTask || isSavingTask || !canWrite
+                            }
                           />
                         )}
                         {definition.description ? (
@@ -4833,10 +4857,11 @@ export default function BoardDetailPage() {
                             onChange={(event) =>
                               setCreateCustomFieldValues((prev) => ({
                                 ...prev,
-                                [definition.field_key]: parseCustomFieldInputValue(
-                                  definition,
-                                  event.target.value,
-                                ),
+                                [definition.field_key]:
+                                  parseCustomFieldInputValue(
+                                    definition,
+                                    event.target.value,
+                                  ),
                               }))
                             }
                             placeholder={
@@ -4862,15 +4887,20 @@ export default function BoardDetailPage() {
                                       ? "url"
                                       : "text"
                             }
-                            step={definition.field_type === "decimal" ? "any" : undefined}
+                            step={
+                              definition.field_type === "decimal"
+                                ? "any"
+                                : undefined
+                            }
                             value={customFieldInputText(fieldValue)}
                             onChange={(event) =>
                               setCreateCustomFieldValues((prev) => ({
                                 ...prev,
-                                [definition.field_key]: parseCustomFieldInputValue(
-                                  definition,
-                                  event.target.value,
-                                ),
+                                [definition.field_key]:
+                                  parseCustomFieldInputValue(
+                                    definition,
+                                    event.target.value,
+                                  ),
                               }))
                             }
                             placeholder={
