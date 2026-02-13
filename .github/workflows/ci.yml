@@ -63,6 +63,7 @@ jobs:
 
 
       - name: Run migration integrity gate
+        if: ${{ github.event_name == 'pull_request' }}
         run: |
           set -euo pipefail
 
