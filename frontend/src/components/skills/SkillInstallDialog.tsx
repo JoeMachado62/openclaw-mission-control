@@ -48,7 +48,9 @@ export function SkillInstallDialog({
         className="max-w-xl p-6 sm:p-7"
       >
         <DialogHeader className="pb-1">
-          <DialogTitle>{selectedSkill ? selectedSkill.name : "Install skill"}</DialogTitle>
+          <DialogTitle>
+            {selectedSkill ? selectedSkill.name : "Install skill"}
+          </DialogTitle>
           <DialogDescription>
             Choose one or more gateways where this skill should be installed.
           </DialogDescription>
@@ -60,14 +62,17 @@ export function SkillInstallDialog({
           ) : (
             gateways.map((gateway) => {
               const isInstalled = gatewayInstalledById[gateway.id] === true;
-              const isUpdatingGateway = installingGatewayId === gateway.id && isMutating;
+              const isUpdatingGateway =
+                installingGatewayId === gateway.id && isMutating;
               return (
                 <div
                   key={gateway.id}
                   className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4"
                 >
                   <div>
-                    <p className="text-sm font-medium text-slate-900">{gateway.name}</p>
+                    <p className="text-sm font-medium text-slate-900">
+                      {gateway.name}
+                    </p>
                   </div>
                   <Button
                     type="button"
@@ -91,11 +96,17 @@ export function SkillInstallDialog({
           {gatewayStatusError ? (
             <p className="text-sm text-rose-600">{gatewayStatusError}</p>
           ) : null}
-          {mutationError ? <p className="text-sm text-rose-600">{mutationError}</p> : null}
+          {mutationError ? (
+            <p className="text-sm text-rose-600">{mutationError}</p>
+          ) : null}
         </div>
 
         <DialogFooter className="mt-6 border-t border-slate-200 pt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isMutating}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isMutating}
+          >
             Close
           </Button>
         </DialogFooter>

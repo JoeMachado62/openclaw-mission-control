@@ -5,8 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import JSON, Column
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import JSON, Column, UniqueConstraint
 from sqlmodel import Field
 
 from app.core.time import utcnow

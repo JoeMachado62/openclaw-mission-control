@@ -36,11 +36,10 @@ export default function EditSkillPackPage() {
     },
   });
 
-  const pack = (
-    packQuery.data?.status === 200 ? packQuery.data.data : null
-  );
+  const pack = packQuery.data?.status === 200 ? packQuery.data.data : null;
 
-  const saveMutation = useUpdateSkillPackApiV1SkillsPacksPackIdPatch<ApiError>();
+  const saveMutation =
+    useUpdateSkillPackApiV1SkillsPacksPackIdPatch<ApiError>();
 
   return (
     <DashboardPageLayout

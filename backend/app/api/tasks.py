@@ -1967,8 +1967,7 @@ async def _apply_lead_task_update(
     if blocked_by:
         attempted_fields: set[str] = set(update.updates.keys())
         attempted_transition = (
-            "assigned_agent_id" in attempted_fields
-            or "status" in attempted_fields
+            "assigned_agent_id" in attempted_fields or "status" in attempted_fields
         )
         if attempted_transition:
             raise _blocked_task_error(blocked_by)

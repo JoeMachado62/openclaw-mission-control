@@ -28,7 +28,10 @@ class SkillPackCreate(SQLModel):
     name: NonEmptyStr | None = None
     description: str | None = None
     branch: str = "main"
-    metadata: dict[str, object] = Field(default_factory=dict)
+    metadata_: dict[str, object] = Field(default_factory=dict, alias="metadata")
+
+    class Config:
+        allow_population_by_field_name = True
 
 
 class MarketplaceSkillRead(SQLModel):
@@ -42,7 +45,11 @@ class MarketplaceSkillRead(SQLModel):
     risk: str | None = None
     source: str | None = None
     source_url: str
-    metadata: dict[str, object]
+    metadata_: dict[str, object] = Field(default_factory=dict, alias="metadata")
+
+    class Config:
+        allow_population_by_field_name = True
+
     created_at: datetime
     updated_at: datetime
 
@@ -56,7 +63,11 @@ class SkillPackRead(SQLModel):
     description: str | None = None
     source_url: str
     branch: str
-    metadata: dict[str, object]
+    metadata_: dict[str, object] = Field(default_factory=dict, alias="metadata")
+
+    class Config:
+        allow_population_by_field_name = True
+
     skill_count: int = 0
     created_at: datetime
     updated_at: datetime

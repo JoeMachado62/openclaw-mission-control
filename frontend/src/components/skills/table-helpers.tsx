@@ -34,7 +34,8 @@ export const useTableSortingState = (
   resolvedSorting: SortingState;
   handleSortingChange: OnChangeFn<SortingState>;
 } => {
-  const [internalSorting, setInternalSorting] = useState<SortingState>(defaultSorting);
+  const [internalSorting, setInternalSorting] =
+    useState<SortingState>(defaultSorting);
   const resolvedSorting = sorting ?? internalSorting;
   const handleSortingChange: OnChangeFn<SortingState> =
     onSortingChange ??

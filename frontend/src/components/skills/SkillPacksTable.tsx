@@ -11,7 +11,10 @@ import {
 } from "@tanstack/react-table";
 
 import type { SkillPackRead } from "@/api/generated/model";
-import { DataTable, type DataTableEmptyState } from "@/components/tables/DataTable";
+import {
+  DataTable,
+  type DataTableEmptyState,
+} from "@/components/tables/DataTable";
 import { dateCell } from "@/components/tables/cell-formatters";
 import { Button } from "@/components/ui/button";
 import {
@@ -62,7 +65,9 @@ export function SkillPacksTable({
         header: "Pack",
         cell: ({ row }) => (
           <div>
-            <p className="text-sm font-medium text-slate-900">{row.original.name}</p>
+            <p className="text-sm font-medium text-slate-900">
+              {row.original.name}
+            </p>
             <p className="mt-1 line-clamp-2 text-xs text-slate-500">
               {row.original.description || "No description provided."}
             </p>
@@ -86,7 +91,11 @@ export function SkillPacksTable({
       {
         accessorKey: "branch",
         header: "Branch",
-        cell: ({ row }) => <p className="text-sm text-slate-900">{row.original.branch || "main"}</p>,
+        cell: ({ row }) => (
+          <p className="text-sm text-slate-900">
+            {row.original.branch || "main"}
+          </p>
+        ),
       },
       {
         accessorKey: "skill_count",
@@ -111,7 +120,9 @@ export function SkillPacksTable({
         enableSorting: false,
         cell: ({ row }) => {
           if (!onSync) return null;
-          const isThisPackSyncing = Boolean(syncingPackIds?.has(row.original.id));
+          const isThisPackSyncing = Boolean(
+            syncingPackIds?.has(row.original.id),
+          );
           return (
             <div className="flex justify-end">
               <Button

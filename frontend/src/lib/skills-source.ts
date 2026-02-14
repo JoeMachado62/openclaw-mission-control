@@ -3,7 +3,9 @@ export const normalizeRepoSourceUrl = (sourceUrl: string): string => {
   return trimmed.endsWith(".git") ? trimmed.slice(0, -4) : trimmed;
 };
 
-export const repoBaseFromSkillSourceUrl = (skillSourceUrl: string): string | null => {
+export const repoBaseFromSkillSourceUrl = (
+  skillSourceUrl: string,
+): string | null => {
   try {
     const parsed = new URL(skillSourceUrl);
     const marker = "/tree/";
@@ -11,7 +13,8 @@ export const repoBaseFromSkillSourceUrl = (skillSourceUrl: string): string | nul
     if (markerIndex <= 0) return null;
 
     // Reject unexpected structures (e.g. multiple /tree/ markers).
-    if (parsed.pathname.indexOf(marker, markerIndex + marker.length) !== -1) return null;
+    if (parsed.pathname.indexOf(marker, markerIndex + marker.length) !== -1)
+      return null;
 
     const repoPath = parsed.pathname.slice(0, markerIndex);
     if (!repoPath || repoPath === "/") return null;

@@ -80,19 +80,18 @@ export default function SkillsPacksPage() {
       },
       queryClient,
     );
-  const syncMutation =
-    useSyncSkillPackApiV1SkillsPacksPackIdSyncPost<ApiError>(
-      {
-        mutation: {
-          onSuccess: async () => {
-            await queryClient.invalidateQueries({
-              queryKey: packsQueryKey,
-            });
-          },
+  const syncMutation = useSyncSkillPackApiV1SkillsPacksPackIdSyncPost<ApiError>(
+    {
+      mutation: {
+        onSuccess: async () => {
+          await queryClient.invalidateQueries({
+            queryKey: packsQueryKey,
+          });
         },
       },
-      queryClient,
-    );
+    },
+    queryClient,
+  );
 
   const handleDelete = () => {
     if (!deleteTarget) return;
@@ -113,7 +112,9 @@ export default function SkillsPacksPage() {
       const response = await syncMutation.mutateAsync({
         packId: pack.id,
       });
-      setSyncWarnings(response.data.warnings ?? []);
+      if (response.status === 200) {
+        setSyncWarnings(response.data.warnings ?? []);
+      }
     } finally {
       setSyncingPackIds((previous) => {
         const next = new Set(previous);
@@ -124,7 +125,12 @@ export default function SkillsPacksPage() {
   };
 
   const handleSyncAllPacks = async () => {
-    if (!isAdmin || isSyncingAll || syncingPackIds.size > 0 || packs.length === 0) {
+    if (
+      !isAdmin ||
+      isSyncingAll ||
+      syncingPackIds.size > 0 ||
+      packs.length === 0
+    ) {
       return;
     }
 
@@ -145,10 +151,12 @@ export default function SkillsPacksPage() {
 
         try {
           const response = await syncMutation.mutateAsync({ packId: pack.id });
-          setSyncWarnings((previous) => [
-            ...previous,
-            ...(response.data.warnings ?? []),
-          ]);
+          if (response.status === 200) {
+            setSyncWarnings((previous) => [
+              ...previous,
+              ...(response.data.warnings ?? []),
+            ]);
+          }
         } catch {
           hasFailure = true;
         } finally {
@@ -190,9 +198,7 @@ export default function SkillsPacksPage() {
                   size: "md",
                 })}
                 disabled={
-                  isSyncingAll ||
-                  syncingPackIds.size > 0 ||
-                  packs.length === 0
+                  isSyncingAll || syncingPackIds.size > 0 || packs.length === 0
                 }
                 onClick={() => {
                   void handleSyncAllPacks();
@@ -241,10 +247,14 @@ export default function SkillsPacksPage() {
             <p className="text-sm text-rose-600">{packsQuery.error.message}</p>
           ) : null}
           {deleteMutation.error ? (
-            <p className="text-sm text-rose-600">{deleteMutation.error.message}</p>
+            <p className="text-sm text-rose-600">
+              {deleteMutation.error.message}
+            </p>
           ) : null}
           {syncMutation.error ? (
-            <p className="text-sm text-rose-600">{syncMutation.error.message}</p>
+            <p className="text-sm text-rose-600">
+              {syncMutation.error.message}
+            </p>
           ) : null}
           {syncAllError ? (
             <p className="text-sm text-rose-600">{syncAllError}</p>

@@ -11,9 +11,13 @@ import {
 } from "@tanstack/react-table";
 
 import type { MarketplaceSkillCardRead } from "@/api/generated/model";
-import { DataTable, type DataTableEmptyState } from "@/components/tables/DataTable";
+import {
+  DataTable,
+  type DataTableEmptyState,
+} from "@/components/tables/DataTable";
 import { dateCell } from "@/components/tables/cell-formatters";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   SKILLS_TABLE_EMPTY_ICON,
   useTableSortingState,
@@ -25,9 +29,32 @@ import {
   packsHrefFromPackUrl,
 } from "@/lib/skills-source";
 
+function riskBadgeVariant(risk: string | null | undefined) {
+  const normalizedRisk = (risk || "unknown").trim().toLowerCase();
+
+  switch (normalizedRisk) {
+    case "low":
+      return "success";
+    case "medium":
+    case "moderate":
+      return "warning";
+    case "high":
+    case "critical":
+      return "danger";
+    case "unknown":
+      return "outline";
+    default:
+      return "accent";
+  }
+}
+
+function riskBadgeLabel(risk: string | null | undefined) {
+  return (risk || "unknown").trim() || "unknown";
+}
+
 type MarketplaceSkillsTableProps = {
   skills: MarketplaceSkillCardRead[];
-  installedGatewayNamesBySkillId?: Record<string, string[]>;
+  installedGatewayNamesBySkillId?: Record<string, { id: string; name: string }[]>;
   isLoading?: boolean;
   sorting?: SortingState;
   onSortingChange?: OnChangeFn<SortingState>;
@@ -78,7 +105,9 @@ export function MarketplaceSkillsTable({
                 {row.original.name}
               </button>
             ) : (
-              <p className="text-sm font-medium text-slate-900">{row.original.name}</p>
+              <p className="text-sm font-medium text-slate-900">
+                {row.original.name}
+              </p>
             )}
             <p
               className="mt-1 line-clamp-2 text-xs text-slate-500"
@@ -117,9 +146,12 @@ export function MarketplaceSkillsTable({
         accessorKey: "risk",
         header: "Risk",
         cell: ({ row }) => (
-          <span className="text-sm text-slate-700">
-            {row.original.risk || "unknown"}
-          </span>
+          <Badge
+            variant={riskBadgeVariant(row.original.risk)}
+            className="px-2 py-0.5"
+          >
+            {riskBadgeLabel(row.original.risk)}
+          </Badge>
         ),
       },
       {
@@ -127,6 +159,11 @@ export function MarketplaceSkillsTable({
         header: "Source",
         cell: ({ row }) => {
           const sourceHref = row.original.source || row.original.source_url;
+
+          if (!sourceHref) {
+            return <span className="text-sm text-slate-400">No source</span>;
+          }
+
           return (
             <Link
               href={sourceHref}
@@ -145,15 +182,32 @@ export function MarketplaceSkillsTable({
         header: "Installed On",
         enableSorting: false,
         cell: ({ row }) => {
-          const installedOn = installedGatewayNamesBySkillId?.[row.original.id] ?? [];
+          const installedOn =
+            installedGatewayNamesBySkillId?.[row.original.id] ?? [];
           if (installedOn.length === 0) {
             return <span className="text-sm text-slate-500">-</span>;
           }
-          const installedOnText = installedOn.join(", ");
           return (
-            <span className="text-sm text-slate-700" title={installedOnText}>
-              {installedOnText}
-            </span>
+            <div className="flex flex-wrap gap-1">
+              {installedOn.map((gateway, index) => {
+                const isLast = index === installedOn.length - 1;
+                return (
+                  <span
+                    key={`${gateway.id}-${index}`}
+                    className="inline-flex items-center gap-1 text-sm text-slate-700"
+                    title={gateway.name}
+                  >
+                    <Link
+                      href={`/gateways/${gateway.id}`}
+                      className="text-blue-700 hover:text-blue-600 hover:underline"
+                    >
+                      {gateway.name}
+                    </Link>
+                    {!isLast ? "," : ""}
+                  </span>
+                );
+              })}
+            </div>
           );
         },
       },

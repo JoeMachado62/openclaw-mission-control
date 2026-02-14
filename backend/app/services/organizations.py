@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from fastapi import HTTPException, status
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy import or_
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import col, select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.time import utcnow
 from app.db import crud
@@ -17,15 +20,14 @@ from app.models.organization_board_access import OrganizationBoardAccess
 from app.models.organization_invite_board_access import OrganizationInviteBoardAccess
 from app.models.organization_invites import OrganizationInvite
 from app.models.organization_members import OrganizationMember
-from app.models.skill_packs import SkillPack
 from app.models.organizations import Organization
+from app.models.skill_packs import SkillPack
 from app.models.users import User
 
 if TYPE_CHECKING:
     from uuid import UUID
 
     from sqlalchemy.sql.elements import ColumnElement
-    from sqlmodel.ext.asyncio.session import AsyncSession
 
     from app.schemas.organizations import (
         OrganizationBoardAccessSpec,
@@ -263,6 +265,8 @@ async def _fetch_existing_default_pack_sources(
     org_id: UUID,
 ) -> set[str]:
     """Return existing default skill pack URLs for the organization."""
+    if not isinstance(session, AsyncSession):
+        return set()
     return {
         _normalize_skill_pack_source_url(row.source_url)
         for row in await SkillPack.objects.filter_by(organization_id=org_id).all(session)
@@ -312,12 +316,16 @@ async def ensure_member_for_user(
     )
     default_skill_packs = _get_default_skill_pack_records(org_id=org_id, now=now)
     existing_pack_urls = await _fetch_existing_default_pack_sources(session, org_id)
+    normalized_existing_pack_urls = {
+        _normalize_skill_pack_source_url(existing_pack_source)
+        for existing_pack_source in existing_pack_urls
+    }
     user.active_organization_id = org_id
     session.add(user)
     session.add(member)
     try:
         await session.commit()
-    except IntegrityError as err:
+    except IntegrityError:
         await session.rollback()
         existing_member = await get_first_membership(session, user.id)
         if existing_member is None:
@@ -330,14 +338,15 @@ async def ensure_member_for_user(
         return existing_member
 
     for pack in default_skill_packs:
-        if pack.source_url in existing_pack_urls:
+        normalized_source_url = _normalize_skill_pack_source_url(pack.source_url)
+        if normalized_source_url in normalized_existing_pack_urls:
             continue
         session.add(pack)
         try:
             await session.commit()
         except IntegrityError:
             await session.rollback()
-            existing_pack_urls.add(pack.source_url)
+            normalized_existing_pack_urls.add(normalized_source_url)
             continue
 
     await session.refresh(member)

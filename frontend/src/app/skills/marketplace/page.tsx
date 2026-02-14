@@ -50,16 +50,20 @@ export default function SkillsMarketplacePage() {
   const searchParams = useSearchParams();
   const { isSignedIn } = useAuth();
   const { isAdmin } = useOrganizationMembership(isSignedIn);
-  const [selectedSkill, setSelectedSkill] = useState<MarketplaceSkillCardRead | null>(null);
+  const [selectedSkill, setSelectedSkill] =
+    useState<MarketplaceSkillCardRead | null>(null);
   const [gatewayInstalledById, setGatewayInstalledById] = useState<
     Record<string, boolean>
   >({});
-  const [installedGatewayNamesBySkillId, setInstalledGatewayNamesBySkillId] = useState<
-    Record<string, string[]>
-  >({});
+  const [installedGatewayNamesBySkillId, setInstalledGatewayNamesBySkillId] =
+    useState<Record<string, { id: string; name: string }[]>>({});
   const [isGatewayStatusLoading, setIsGatewayStatusLoading] = useState(false);
-  const [gatewayStatusError, setGatewayStatusError] = useState<string | null>(null);
-  const [installingGatewayId, setInstallingGatewayId] = useState<string | null>(null);
+  const [gatewayStatusError, setGatewayStatusError] = useState<string | null>(
+    null,
+  );
+  const [installingGatewayId, setInstallingGatewayId] = useState<string | null>(
+    null,
+  );
 
   const { sorting, onSortingChange } = useUrlSorting({
     allowedColumnIds: MARKETPLACE_SKILLS_SORTABLE_COLUMNS,
@@ -161,25 +165,29 @@ export default function SkillsMarketplacePage() {
   const updateInstalledGatewayNames = useCallback(
     ({
       skillId,
+      gatewayId,
       gatewayName,
       installed,
     }: {
       skillId: string;
+      gatewayId: string;
       gatewayName: string;
       installed: boolean;
     }) => {
       setInstalledGatewayNamesBySkillId((previous) => {
         const installedOn = previous[skillId] ?? [];
         if (installed) {
-          if (installedOn.includes(gatewayName)) return previous;
+          if (installedOn.some((gateway) => gateway.id === gatewayId)) {
+            return previous;
+          }
           return {
             ...previous,
-            [skillId]: [...installedOn, gatewayName],
+            [skillId]: [...installedOn, { id: gatewayId, name: gatewayName }],
           };
         }
         return {
           ...previous,
-          [skillId]: installedOn.filter((name) => name !== gatewayName),
+          [skillId]: installedOn.filter((gateway) => gateway.id !== gatewayId),
         };
       });
     },
@@ -190,7 +198,12 @@ export default function SkillsMarketplacePage() {
     let cancelled = false;
 
     const loadInstalledGatewaysBySkill = async () => {
-      if (!isSignedIn || !isAdmin || gateways.length === 0 || skills.length === 0) {
+      if (
+        !isSignedIn ||
+        !isAdmin ||
+        gateways.length === 0 ||
+        skills.length === 0
+      ) {
         setInstalledGatewayNamesBySkillId({});
         return;
       }
@@ -198,9 +211,10 @@ export default function SkillsMarketplacePage() {
       try {
         const gatewaySkills = await Promise.all(
           gateways.map(async (gateway) => {
-            const response = await listMarketplaceSkillsApiV1SkillsMarketplaceGet({
-              gateway_id: gateway.id,
-            });
+            const response =
+              await listMarketplaceSkillsApiV1SkillsMarketplaceGet({
+                gateway_id: gateway.id,
+              });
             return {
               gatewayId: gateway.id,
               gatewayName: gateway.name,
@@ -211,16 +225,26 @@ export default function SkillsMarketplacePage() {
 
         if (cancelled) return;
 
-        const nextInstalledGatewayNamesBySkillId: Record<string, string[]> = {};
+        const nextInstalledGatewayNamesBySkillId: Record<
+          string,
+          { id: string; name: string }[]
+        > = {};
         for (const skill of skills) {
           nextInstalledGatewayNamesBySkillId[skill.id] = [];
         }
 
-        for (const { gatewayName, skills: gatewaySkillRows } of gatewaySkills) {
+        for (const {
+          gatewayId,
+          gatewayName,
+          skills: gatewaySkillRows,
+        } of gatewaySkills) {
           for (const skill of gatewaySkillRows) {
             if (!skill.installed) continue;
             if (!nextInstalledGatewayNamesBySkillId[skill.id]) continue;
-            nextInstalledGatewayNamesBySkillId[skill.id].push(gatewayName);
+            nextInstalledGatewayNamesBySkillId[skill.id].push({
+              id: gatewayId,
+              name: gatewayName,
+            });
           }
         }
 
@@ -250,11 +274,13 @@ export default function SkillsMarketplacePage() {
               ...previous,
               [variables.params.gateway_id]: true,
             }));
-            const gatewayName =
-              gateways.find((gateway) => gateway.id === variables.params.gateway_id)?.name;
+            const gatewayName = gateways.find(
+              (gateway) => gateway.id === variables.params.gateway_id,
+            )?.name;
             if (gatewayName) {
               updateInstalledGatewayNames({
                 skillId: variables.skillId,
+                gatewayId: variables.params.gateway_id,
                 gatewayName,
                 installed: true,
               });
@@ -277,11 +303,13 @@ export default function SkillsMarketplacePage() {
               ...previous,
               [variables.params.gateway_id]: false,
             }));
-            const gatewayName =
-              gateways.find((gateway) => gateway.id === variables.params.gateway_id)?.name;
+            const gatewayName = gateways.find(
+              (gateway) => gateway.id === variables.params.gateway_id,
+            )?.name;
             if (gatewayName) {
               updateInstalledGatewayNames({
                 skillId: variables.skillId,
+                gatewayId: variables.params.gateway_id,
                 gatewayName,
                 installed: false,
               });
@@ -314,16 +342,22 @@ export default function SkillsMarketplacePage() {
       setGatewayStatusError(null);
       try {
         const gatewaySkills = await loadSkillsByGateway();
-        const entries = gatewaySkills.map(({ gatewayId, skills: gatewaySkillRows }) => {
-          const row = gatewaySkillRows.find((skill) => skill.id === selectedSkill.id);
-          return [gatewayId, Boolean(row?.installed)] as const;
-        });
+        const entries = gatewaySkills.map(
+          ({ gatewayId, skills: gatewaySkillRows }) => {
+            const row = gatewaySkillRows.find(
+              (skill) => skill.id === selectedSkill.id,
+            );
+            return [gatewayId, Boolean(row?.installed)] as const;
+          },
+        );
         if (cancelled) return;
         setGatewayInstalledById(Object.fromEntries(entries));
       } catch (error) {
         if (cancelled) return;
         setGatewayStatusError(
-          error instanceof Error ? error.message : "Unable to load gateway status.",
+          error instanceof Error
+            ? error.message
+            : "Unable to load gateway status.",
         );
       } finally {
         if (!cancelled) {
@@ -391,7 +425,9 @@ export default function SkillsMarketplacePage() {
         <div className="space-y-6">
           {gateways.length === 0 ? (
             <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
-              <p className="font-medium text-slate-900">No gateways available yet.</p>
+              <p className="font-medium text-slate-900">
+                No gateways available yet.
+              </p>
               <p className="mt-2">
                 Create a gateway first, then return here to manage installs.
               </p>
@@ -407,7 +443,9 @@ export default function SkillsMarketplacePage() {
               <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                 <MarketplaceSkillsTable
                   skills={visibleSkills}
-                  installedGatewayNamesBySkillId={installedGatewayNamesBySkillId}
+                  installedGatewayNamesBySkillId={
+                    installedGatewayNamesBySkillId
+                  }
                   isLoading={skillsQuery.isLoading}
                   sorting={sorting}
                   onSortingChange={onSortingChange}
@@ -416,7 +454,8 @@ export default function SkillsMarketplacePage() {
                   onSkillClick={setSelectedSkill}
                   emptyState={{
                     title: "No marketplace skills yet",
-                    description: "Add packs first, then synced skills will appear here.",
+                    description:
+                      "Add packs first, then synced skills will appear here.",
                     actionHref: "/skills/packs/new",
                     actionLabel: "Add your first pack",
                   }}
@@ -431,7 +470,9 @@ export default function SkillsMarketplacePage() {
           {packsQuery.error ? (
             <p className="text-sm text-rose-600">{packsQuery.error.message}</p>
           ) : null}
-          {mutationError ? <p className="text-sm text-rose-600">{mutationError}</p> : null}
+          {mutationError ? (
+            <p className="text-sm text-rose-600">{mutationError}</p>
+          ) : null}
         </div>
       </DashboardPageLayout>
 

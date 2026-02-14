@@ -20,8 +20,8 @@ from app.api.skills_marketplace import (
     PackSkillCandidate,
     _collect_pack_skills_from_repo,
     _validate_pack_source_url,
-    router as skills_marketplace_router,
 )
+from app.api.skills_marketplace import router as skills_marketplace_router
 from app.db.session import get_session
 from app.models.gateway_installed_skills import GatewayInstalledSkill
 from app.models.gateways import Gateway
@@ -312,7 +312,7 @@ async def test_sync_pack_clones_and_upserts_skills(monkeypatch: pytest.MonkeyPat
                 source_url="https://github.com/sickn33/antigravity-awesome-skills/tree/main/skills/alpha",
                 category="testing",
                 risk="low",
-                source="skills-index",
+                source="skills/alpha",
             ),
             PackSkillCandidate(
                 name="Skill Beta",
@@ -320,7 +320,7 @@ async def test_sync_pack_clones_and_upserts_skills(monkeypatch: pytest.MonkeyPat
                 source_url="https://github.com/sickn33/antigravity-awesome-skills/tree/main/skills/beta",
                 category="automation",
                 risk="medium",
-                source="skills-index",
+                source="skills/beta",
             ),
         ]
 
@@ -392,7 +392,7 @@ async def test_sync_pack_clones_and_upserts_skills(monkeypatch: pytest.MonkeyPat
                 by_source[
                     "https://github.com/sickn33/antigravity-awesome-skills/tree/main/skills/beta"
                 ].source
-                == "skills-index"
+                == "skills/beta"
             )
     finally:
         await engine.dispose()
@@ -450,7 +450,10 @@ async def test_create_skill_pack_rejects_non_https_source_url() -> None:
             )
 
         assert response.status_code == 400
-        assert "scheme" in response.json()["detail"].lower() or "https" in response.json()["detail"].lower()
+        assert (
+            "scheme" in response.json()["detail"].lower()
+            or "https" in response.json()["detail"].lower()
+        )
     finally:
         await engine.dispose()
 
@@ -480,7 +483,10 @@ async def test_create_skill_pack_rejects_localhost_source_url() -> None:
             )
 
         assert response.status_code == 400
-        assert "hostname" in response.json()["detail"].lower() or "not allowed" in response.json()["detail"].lower()
+        assert (
+            "hostname" in response.json()["detail"].lower()
+            or "not allowed" in response.json()["detail"].lower()
+        )
     finally:
         await engine.dispose()
 
@@ -724,7 +730,6 @@ def test_collect_pack_skills_from_repo_uses_root_index_when_present(tmp_path: Pa
                     "path": "skills/index-first",
                     "category": "uncategorized",
                     "risk": "unknown",
-                    "source": "index-source",
                 },
                 {
                     "id": "second",
@@ -733,7 +738,6 @@ def test_collect_pack_skills_from_repo_uses_root_index_when_present(tmp_path: Pa
                     "path": "skills/index-second/SKILL.md",
                     "category": "catalog",
                     "risk": "low",
-                    "source": "index-source",
                 },
                 {
                     "id": "root",
@@ -742,7 +746,6 @@ def test_collect_pack_skills_from_repo_uses_root_index_when_present(tmp_path: Pa
                     "path": "SKILL.md",
                     "category": "uncategorized",
                     "risk": "unknown",
-                    "source": "index-source",
                 },
             ]
         ),
@@ -766,19 +769,34 @@ def test_collect_pack_skills_from_repo_uses_root_index_when_present(tmp_path: Pa
         in by_source
     )
     assert "https://github.com/sickn33/antigravity-awesome-skills/tree/main" in by_source
-    assert by_source[
-        "https://github.com/sickn33/antigravity-awesome-skills/tree/main/skills/index-first"
-    ].name == "Index First"
-    assert by_source[
-        "https://github.com/sickn33/antigravity-awesome-skills/tree/main/skills/index-first"
-    ].category == "uncategorized"
-    assert by_source[
-        "https://github.com/sickn33/antigravity-awesome-skills/tree/main/skills/index-first"
-    ].risk == "unknown"
-    assert by_source[
-        "https://github.com/sickn33/antigravity-awesome-skills/tree/main/skills/index-first"
-    ].source == "index-source"
-    assert by_source["https://github.com/sickn33/antigravity-awesome-skills/tree/main"].name == "Root Skill"
+    assert (
+        by_source[
+            "https://github.com/sickn33/antigravity-awesome-skills/tree/main/skills/index-first"
+        ].name
+        == "Index First"
+    )
+    assert (
+        by_source[
+            "https://github.com/sickn33/antigravity-awesome-skills/tree/main/skills/index-first"
+        ].category
+        == "uncategorized"
+    )
+    assert (
+        by_source[
+            "https://github.com/sickn33/antigravity-awesome-skills/tree/main/skills/index-first"
+        ].risk
+        == "unknown"
+    )
+    assert (
+        by_source[
+            "https://github.com/sickn33/antigravity-awesome-skills/tree/main/skills/index-first"
+        ].source
+        == "skills/index-first"
+    )
+    assert (
+        by_source["https://github.com/sickn33/antigravity-awesome-skills/tree/main"].name
+        == "Root Skill"
+    )
 
 
 def test_collect_pack_skills_from_repo_supports_root_skill_md(tmp_path: Path) -> None:
@@ -827,8 +845,7 @@ def test_collect_pack_skills_from_repo_supports_top_level_skill_folders(
         in by_source
     )
     assert (
-        "https://github.com/BrianRWagner/ai-marketing-skills/tree/main/homepage-audit"
-        in by_source
+        "https://github.com/BrianRWagner/ai-marketing-skills/tree/main/homepage-audit" in by_source
     )
 
 
@@ -862,7 +879,6 @@ def test_collect_pack_skills_from_repo_streams_large_index(tmp_path: Path) -> No
 
     assert len(skills) == 1
     assert (
-        skills[0].source_url
-        == "https://github.com/example/oversized-pack/tree/main/skills/ignored"
+        skills[0].source_url == "https://github.com/example/oversized-pack/tree/main/skills/ignored"
     )
     assert skills[0].name == "Huge Index Skill"
