@@ -78,12 +78,28 @@ def _coerce_datetime(raw: object | None) -> datetime:
     return datetime.now(UTC)
 
 
-def dequeue_task(queue_name: str, *, redis_url: str | None = None) -> QueuedTask | None:
+def dequeue_task(
+    queue_name: str,
+    *,
+    redis_url: str | None = None,
+    block: bool = False,
+    block_timeout: float = 0,
+) -> QueuedTask | None:
     """Pop one task envelope from the queue."""
     client = _redis_client(redis_url=redis_url)
-    raw = cast(str | bytes | None, client.rpop(queue_name))
-    if raw is None:
-        return None
+    if block:
+        raw = cast(tuple[bytes | str, bytes | str] | None, client.brpop(queue_name, timeout=block_timeout))
+        if raw is None:
+            return None
+        raw = raw[1]
+    else:
+        raw = cast(str | bytes | None, client.rpop(queue_name))
+        if raw is None:
+            return None
+    return _decode_task(raw, queue_name)
+
+
+def _decode_task(raw: str | bytes, queue_name: str) -> QueuedTask:
     if isinstance(raw, bytes):
         raw = raw.decode("utf-8")
 

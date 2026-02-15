@@ -162,12 +162,12 @@ async def _process_single_item(item: QueuedInboundDelivery) -> None:
         await session.commit()
 
 
-async def flush_webhook_delivery_queue() -> None:
+async def flush_webhook_delivery_queue(*, block: bool = False, block_timeout: float = 0) -> int:
     """Consume queued webhook events and notify board leads in a throttled batch."""
     processed = 0
     while True:
         try:
-            item = dequeue_webhook_delivery()
+            item = dequeue_webhook_delivery(block=block, block_timeout=block_timeout)
         except Exception:
             logger.exception("webhook.dispatch.dequeue_failed")
             continue
@@ -200,7 +200,9 @@ async def flush_webhook_delivery_queue() -> None:
             )
             requeue_if_failed(item)
         time.sleep(settings.rq_dispatch_throttle_seconds)
-    logger.info("webhook.dispatch.batch_complete", extra={"count": processed})
+    if processed > 0:
+        logger.info("webhook.dispatch.batch_complete", extra={"count": processed})
+    return processed
 
 
 def run_flush_webhook_delivery_queue() -> None:

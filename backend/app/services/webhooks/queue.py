@@ -92,10 +92,19 @@ def enqueue_webhook_delivery(payload: QueuedInboundDelivery) -> bool:
         return False
 
 
-def dequeue_webhook_delivery() -> QueuedInboundDelivery | None:
+def dequeue_webhook_delivery(
+    *,
+    block: bool = False,
+    block_timeout: float = 0,
+) -> QueuedInboundDelivery | None:
     """Pop one queued webhook delivery payload."""
     try:
-        task = dequeue_task(settings.rq_queue_name, redis_url=settings.rq_redis_url)
+        task = dequeue_task(
+            settings.rq_queue_name,
+            redis_url=settings.rq_redis_url,
+            block=block,
+            block_timeout=block_timeout,
+        )
         if task is None:
             return None
         return _payload_from_task(task)
