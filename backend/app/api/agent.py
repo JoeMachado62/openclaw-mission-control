@@ -1644,7 +1644,9 @@ async def read_agent_file(
     summary="Update agent file",
     description=(
         "Write content to an agent markdown file and persist it for reprovisioning.\n\n"
-        "Use this when agent configuration files need updates."
+        "Use this when agent configuration files need updates. While this endpoint can "
+        "handle SOUL.md, prefer the dedicated SOUL endpoint for better semantic clarity "
+        "and specialized SOUL operations."
     ),
     operation_id="agent_lead_update_file",
     responses={
@@ -1669,11 +1671,11 @@ async def read_agent_file(
     openapi_extra={
         "x-llm-intent": "agent_file_authoring",
         "x-when-to-use": [
-            "Update agent configuration files like IDENTITY.md or BOOTSTRAP.md",
+            "Update agent configuration files like IDENTITY.md, BOOTSTRAP.md, or AGENTS.md",
             "Import existing agent files into mission control",
         ],
         "x-when-not-to-use": [
-            "Use dedicated SOUL endpoint for SOUL.md updates",
+            "Prefer dedicated SOUL endpoint for SOUL.md (though this endpoint can handle it)",
             "Use task comments for transient guidance",
         ],
         "x-required-actor": "board_lead",

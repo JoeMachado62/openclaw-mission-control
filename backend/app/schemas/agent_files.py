@@ -54,34 +54,6 @@ class AgentFileUpdate(SQLModel):
     )
 
 
-class AgentFileImport(SQLModel):
-    """Request model for importing an agent file."""
-
-    model_config = SQLModelConfig(
-        json_schema_extra={
-            "x-llm-intent": "agent_file_import",
-            "x-when-to-use": [
-                "Import existing agent markdown file into mission control",
-                "Upload IDENTITY.md, SOUL.md, or other agent files",
-            ],
-        },
-    )
-
-    name: str = Field(
-        description="File name (e.g., IDENTITY.md, SOUL.md, BOOTSTRAP.md)",
-        examples=["IDENTITY.md", "SOUL.md"],
-    )
-    content: str = Field(
-        description="File content to import",
-        examples=["# IDENTITY.md\n\n## Core\n- Name: Agent Name"],
-    )
-    reason: str | None = Field(
-        default=None,
-        description="Optional reason for the import",
-        examples=["Importing existing agent configuration"],
-    )
-
-
 class AgentFileListItem(SQLModel):
     """Agent file list item."""
 
