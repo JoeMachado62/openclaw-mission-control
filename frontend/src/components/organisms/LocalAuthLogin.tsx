@@ -81,7 +81,12 @@ export function LocalAuthLogin({ onAuthenticated }: LocalAuthLoginProps) {
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-app px-4 py-10">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-28 -left-24 h-72 w-72 rounded-full bg-[color:var(--accent-soft)] blur-3xl" />
-        <div className="absolute -right-28 -bottom-24 h-80 w-80 rounded-full bg-[rgba(14,165,233,0.12)] blur-3xl" />
+        <div className="absolute -right-28 -bottom-24 h-80 w-80 rounded-full bg-[rgba(64,97,182,0.15)] blur-3xl" />
+      </div>
+
+      <div className="relative mb-6 flex justify-center">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo.png" alt="Virtual CarHub" className="h-16 w-auto" />
       </div>
 
       <Card className="relative w-full max-w-lg animate-fade-in-up">
