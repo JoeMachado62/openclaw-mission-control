@@ -21,7 +21,7 @@ export function LandingShell({ children }: { children: ReactNode }) {
         <div className="nav-container">
           <Link href="/" className="logo-section" aria-label="Virtual CarHub home">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="Virtual CarHub" style={{ height: "36px", width: "auto" }} />
+            <img src="/logo.png" alt="Virtual CarHub" style={{ height: "52px", width: "auto" }} />
           </Link>
 
           <div className="nav-links">
