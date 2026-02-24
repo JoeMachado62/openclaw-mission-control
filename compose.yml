@@ -43,8 +43,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
-    ports:
-      - "${BACKEND_PORT:-8000}:8000"
+    expose:
+      - "8000"
 
   frontend:
     build:
@@ -63,8 +63,24 @@ services:
       NEXT_PUBLIC_AUTH_MODE: ${AUTH_MODE}
     depends_on:
       - backend
+    expose:
+      - "3000"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
     ports:
-      - "${FRONTEND_PORT:-3000}:3000"
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+      - "8000:8000"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
 
   webhook-worker:
     build:
@@ -90,3 +106,5 @@ services:
 
 volumes:
   postgres_data:
+  caddy_data:
+  caddy_config:

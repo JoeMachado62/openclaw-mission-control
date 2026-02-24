@@ -1,0 +1,7 @@
+virtualcarhub.cloud {
+    reverse_proxy frontend:3000
+}
+
+virtualcarhub.cloud:8000 {
+    reverse_proxy backend:8000
+}
