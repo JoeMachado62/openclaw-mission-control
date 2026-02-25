@@ -84,12 +84,11 @@ export function LocalAuthLogin({ onAuthenticated }: LocalAuthLoginProps) {
         <div className="absolute -right-28 -bottom-24 h-80 w-80 rounded-full bg-[rgba(64,97,182,0.15)] blur-3xl" />
       </div>
 
-      <div className="relative mb-6 flex justify-center">
+      <div className="relative flex w-full max-w-lg flex-col items-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.png" alt="Virtual CarHub" className="h-16 w-auto" />
-      </div>
+        <img src="/logo.png" alt="Virtual CarHub" className="mb-6 h-16 w-auto" />
 
-      <Card className="relative w-full max-w-lg animate-fade-in-up">
+      <Card className="relative w-full animate-fade-in-up">
         <CardHeader className="space-y-5 border-b border-[color:var(--border)] pb-5">
           <div className="flex items-center justify-between">
             <span className="rounded-full border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-muted">
@@ -148,6 +147,7 @@ export function LocalAuthLogin({ onAuthenticated }: LocalAuthLoginProps) {
           </form>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
